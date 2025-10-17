@@ -1,0 +1,143 @@
+{
+  "project_info": {
+    "project_number": "751846036862",
+    "firebase_url": "https://friendlychat-6234b-default-rtdb.firebaseio.com",
+    "project_id": "friendlychat-6234b",
+    "storage_bucket": "friendlychat-6234b.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:751846036862:android:60ab3dd13c0359995ecf2f",
+        "android_client_info": {
+          "package_name": "com.iphonesaleapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "751846036862-s6jrigrq3ommm1pbmnuja107rnibieoi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.iphonesaleapp",
+            "certificate_hash": "5cbe0d2b82bd7cf49657fb30f7409137b40f64d3"
+          }
+        },
+        {
+          "client_id": "751846036862-de65b8du5ec6ilc8t8h261m3cjsr493l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJp2FC_yIyEfIULO_dICLBC2ebcMF4E4U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "751846036862-20v55bm3no3f11sspr9a37l8sfhc4dd0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "751846036862-15me5i66qnghdiujdnsukqrsn5nhs4k9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.google.firebase.codelab.friendlychat.FriendlyChatSwiftUI"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:751846036862:android:2981466a3e1f10ca5ecf2f",
+        "android_client_info": {
+          "package_name": "com.product.sales"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "751846036862-9vctkkee11mlau28uuq3pe608q45sl0q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.product.sales",
+            "certificate_hash": "5cbe0d2b82bd7cf49657fb30f7409137b40f64d3"
+          }
+        },
+        {
+          "client_id": "751846036862-de65b8du5ec6ilc8t8h261m3cjsr493l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJp2FC_yIyEfIULO_dICLBC2ebcMF4E4U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "751846036862-20v55bm3no3f11sspr9a37l8sfhc4dd0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "751846036862-15me5i66qnghdiujdnsukqrsn5nhs4k9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.google.firebase.codelab.friendlychat.FriendlyChatSwiftUI"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:751846036862:android:88c5abae38cce39b5ecf2f",
+        "android_client_info": {
+          "package_name": "com.test.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "751846036862-1mfu4m3rce4qn060niur5r71cr7fa7qm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.test.app",
+            "certificate_hash": "5cbe0d2b82bd7cf49657fb30f7409137b40f64d3"
+          }
+        },
+        {
+          "client_id": "751846036862-de65b8du5ec6ilc8t8h261m3cjsr493l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJp2FC_yIyEfIULO_dICLBC2ebcMF4E4U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "751846036862-20v55bm3no3f11sspr9a37l8sfhc4dd0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "751846036862-15me5i66qnghdiujdnsukqrsn5nhs4k9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.google.firebase.codelab.friendlychat.FriendlyChatSwiftUI"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
