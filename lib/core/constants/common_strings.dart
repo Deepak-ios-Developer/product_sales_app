@@ -1,4 +1,5 @@
 class AppStrings {
+  static const String APP_URL = '';
   // App Information
   static const String appName = 'Products App';
   static const String iPhoneSaleApp = 'Product Sales App';

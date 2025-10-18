@@ -4,7 +4,6 @@ import 'package:product_sale_app/core/model/product_model.dart';
 import 'package:product_sale_app/core/view/login_screen.dart';
 import 'package:product_sale_app/core/view/product_list_screen.dart';
 
-
 class AppRoutes {
   static const String login = '/login';
   static const String home = '/home';
@@ -13,20 +12,24 @@ class AppRoutes {
   static const String pdfList = '/pdfList';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
-    switch (settings.name) {
-      case login:
-        return MaterialPageRoute(builder: (context) => const LoginScreen());
-      case products:
-        return MaterialPageRoute(builder: (context) => const ProductListingScreen());
-      case productDetail:
-        final product = settings.arguments as Products; // Retrieve the product argument
-        return MaterialPageRoute(
-          builder: (context) => ProductDetailScreen(product: product),
-        );
-      default:
-        return MaterialPageRoute(builder: (context) => const LoginScreen()); // Default route
-    }
+  switch (settings.name) {
+    case login:
+      return MaterialPageRoute(builder: (context) => const LoginScreen());
+    case products:
+      return MaterialPageRoute(
+          builder: (context) => const ProductListingScreen());
+    case productDetail:
+      final productId = settings.arguments as String?; // Cast to String
+      return MaterialPageRoute(
+        builder: (context) => ProductDetailScreen(
+          productId: productId ?? "",
+        ),
+      );
+    default:
+      return MaterialPageRoute(
+          builder: (context) => const LoginScreen()); // Default route
   }
+}
 
   static final routes = <String, WidgetBuilder>{
     login: (BuildContext context) => const LoginScreen(),

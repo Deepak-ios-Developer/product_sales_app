@@ -36,6 +36,7 @@ class AppTheme {
   );
   static const Color primaryColor = Color(0xFF36930f);
   static const Color secondaryColor = Color(0xFF5856D6);
+  static const Color cartButtonColour = Color(0xFFa34854);
   static const Color white = Colors.white;
   static const Color shadeGrey = Colors.grey;
   static const Color darkGrey = Colors.grey;

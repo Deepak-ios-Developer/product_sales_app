@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:product_sale_app/core/model/product_detail_model.dart';
+import 'package:product_sale_app/core/service/product_service.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import '../common_widgets/share_pdf_button.dart';
@@ -10,9 +12,9 @@ import '../themes/app_theme.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 
 class ProductDetailScreen extends StatefulWidget {
-  final Products product;
+  final String? productId;
 
-  const ProductDetailScreen({super.key, required this.product});
+  const ProductDetailScreen({super.key, required this.productId});
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
@@ -25,10 +27,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   bool _isFavorite = false;
   late TabController _tabController;
 
+  bool _isLoadingProduct = true;
+  bool _isLoadingReviews = true;
+  Product? _product;
+  List<Data> _reviews = [];
+  int _totalReviews = 0;
+  int _currentPage = 1;
+  String? _errorMessage;
+
+  static const String _imageBaseUrl =
+      'https://beautybarn.blr1.cdn.digitaloceanspaces.com/';
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
+    _fetchProductDetails();
+    _fetchProductReviews();
   }
 
   @override
@@ -37,47 +52,178 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     super.dispose();
   }
 
-  // Helper method to parse price from string format like "$26.00" or "$8.00 - $16.00"
-  double _parsePrice(String? priceString) {
-    if (priceString == null || priceString.isEmpty) return 0.0;
+  Future<void> _fetchProductDetails() async {
+    setState(() {
+      _isLoadingProduct = true;
+      _errorMessage = null;
+    });
 
-    // Remove currency symbols and extract first number
-    String cleaned = priceString.replaceAll(RegExp(r'[^\d.-]'), '');
-    if (cleaned.contains('-')) {
-      cleaned = cleaned.split('-')[0].trim();
+    try {
+      final productId = widget.productId;
+
+      final productResponse = await ProductService.fetchProducts(
+        productId: productId,
+        limit: 50,
+      );
+
+      if (productResponse.data?.products != null &&
+          productResponse.data!.products!.isNotEmpty) {
+        Product? matchedProduct;
+
+        for (var product in productResponse.data!.products!) {
+          if (product.id == productId) {
+            matchedProduct = product;
+            break;
+          }
+        }
+
+        if (matchedProduct != null) {
+          setState(() {
+            _product = matchedProduct;
+            _isLoadingProduct = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = 'Product with ID "$productId" not found';
+            _isLoadingProduct = false;
+          });
+        }
+      } else {
+        setState(() {
+          _errorMessage = 'No products found in response';
+          _isLoadingProduct = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error fetching product: $e';
+        _isLoadingProduct = false;
+      });
     }
-    return double.tryParse(cleaned) ?? 0.0;
+  }
+
+  Future<void> _fetchProductReviews() async {
+    setState(() {
+      _isLoadingReviews = true;
+    });
+
+    try {
+      final reviewResponse = await ProductService.fetchProductReviews(
+        productId: widget.productId ?? '',
+        page: _currentPage,
+        limit: 10,
+      );
+
+      setState(() {
+        _reviews = reviewResponse.data ?? [];
+        _totalReviews = reviewResponse.meta?.total ?? 0;
+        _isLoadingReviews = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingReviews = false;
+      });
+    }
+  }
+
+  String _getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) return '';
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    return '$_imageBaseUrl$imagePath';
   }
 
   @override
   Widget build(BuildContext context) {
-    final product = widget.product;
     final theme = Theme.of(context);
     final isDarkTheme = theme.brightness == Brightness.dark;
 
-    // Get price from currentSku
-    final double price = _parsePrice(product.currentSku?.listPrice);
-    final double salePrice = _parsePrice(product.currentSku?.salePrice);
-    final double currentPrice = salePrice > 0 ? salePrice : price;
+    if (_isLoadingProduct) {
+      return Scaffold(
+        backgroundColor: isDarkTheme ? Colors.black : Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: AppTheme.secondaryColor,
+          ),
+        ),
+      );
+    }
 
-    final double discount = price > 0 && currentPrice < price
-        ? ((price - currentPrice) / price * 100)
+    if (_errorMessage != null || _product == null) {
+      return Scaffold(
+        backgroundColor: isDarkTheme ? Colors.black : Colors.white,
+        appBar: AppBar(
+          backgroundColor: isDarkTheme ? Colors.black : Colors.white,
+          elevation: 0,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              SizedBox(height: 16),
+              Text(
+                _errorMessage ?? 'Product not found',
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  color: isDarkTheme ? Colors.white70 : Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _fetchProductDetails,
+                child: Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final product = _product!;
+
+    final variant = product.variants?.first;
+    final int originalPrice = variant?.originalPrice ?? 0;
+    final int currentPrice = variant?.currentPrice ?? 0;
+    final int specialPrice = variant?.specialPrice ?? 0;
+
+    final double discount = originalPrice > 0 && currentPrice < originalPrice
+        ? ((originalPrice - currentPrice) / originalPrice * 100)
         : 0.0;
 
-    // Get images - create list with available images
     final List<String> images = [
-      if (product.heroImage?.isNotEmpty ?? false) product.heroImage!,
-      if (product.image450?.isNotEmpty ?? false) product.image450!,
-      if (product.image250?.isNotEmpty ?? false) product.image250!,
-      if (product.image135?.isNotEmpty ?? false) product.image135!,
-      if (product.altImage?.isNotEmpty ?? false) product.altImage!,
-    ].toSet().toList(); // Remove duplicates
+      if (product.thumbnail?.isNotEmpty ?? false)
+        _getImageUrl(product.thumbnail),
+      if (product.productImages != null)
+        ...product.productImages!
+            .map((img) => _getImageUrl(img.image))
+            .where((url) => url.isNotEmpty),
+    ].toSet().toList();
 
-    final String thumbnailUrl = product.heroImage ?? '';
+    final String thumbnailUrl = images.isNotEmpty ? images.first : '';
 
-    // Get rating and reviews
-    final double rating = double.tryParse(product.rating ?? '0') ?? 0.0;
-    final int reviewsCount = int.tryParse(product.reviews ?? '0') ?? 0;
+    final double rating = product.averageRating ?? 0.0;
+    final int reviewsCount =
+        _totalReviews > 0 ? _totalReviews : (product.reviewsCount ?? 0);
+
+    final String brandName = product.brand?.title ?? product.brand?.name ?? '';
+
+    bool isNew = false;
+    if (product.createdAt != null) {
+      try {
+        final createdDate = DateTime.parse(product.createdAt!);
+        isNew = DateTime.now().difference(createdDate).inDays < 30;
+      } catch (e) {
+        isNew = false;
+      }
+    }
+
+    final bool isSale = specialPrice > 0 && specialPrice < originalPrice;
+
+    final int inventoryQty = variant?.inventoryQuantity ?? 0;
+    final bool inStock = inventoryQty > 0;
 
     return Scaffold(
       backgroundColor: isDarkTheme ? Colors.black : Colors.white,
@@ -89,10 +235,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildImageCarousel(images, isDarkTheme, theme),
-                _buildProductInfo(product, rating, reviewsCount, isDarkTheme),
-                _buildPriceSection(price, currentPrice, discount, isDarkTheme),
+                _buildProductInfo(product, brandName, rating, reviewsCount,
+                    isNew, isSale, isDarkTheme),
+                _buildPriceSection(
+                    originalPrice, currentPrice, discount, isDarkTheme),
                 _buildRewardsSection(currentPrice, isDarkTheme),
-                _buildQuantityAndAddToBag(isDarkTheme),
+                _buildQuantityAndAddToBag(inStock, isDarkTheme),
                 _buildTabSection(product, isDarkTheme),
               ],
             ),
@@ -102,7 +250,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _buildAppBar(Products product, String thumbnailUrl, bool isDarkTheme) {
+  Widget _buildAppBar(Product product, String thumbnailUrl, bool isDarkTheme) {
     return SliverAppBar(
       backgroundColor: isDarkTheme ? Colors.black : Colors.white,
       surfaceTintColor: Colors.transparent,
@@ -165,25 +313,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             ],
           ),
           child: ShareAsPDFButton(
-            title: product.displayName ?? AppStrings.title,
-            description:
-                product.currentSku?.imageAltText ?? AppStrings.description,
+            title: product.title ?? AppStrings.title,
+            description: product.description ?? AppStrings.description,
             imageUrl: thumbnailUrl,
-            discountedPrice: _parsePrice(
-                product.currentSku?.salePrice ?? product.currentSku?.listPrice),
-            // Additional optional parameters for comprehensive PDF
-            brandName: product.brandName,
-            productId: product.productId,
-            skuId: product.currentSku?.skuId,
-            originalPrice: _parsePrice(product.currentSku?.listPrice),
-            rating: double.tryParse(product.rating ?? '0'),
-            reviewsCount: int.tryParse(product.reviews ?? '0'),
-            isNew: product.currentSku?.isNew,
-            isSephoraExclusive: product.currentSku?.isSephoraExclusive,
-            isLimitedEdition: product.currentSku?.isLimitedEdition,
-            moreColors: product.moreColors,
-            pickupEligible: product.pickupEligible,
-            sameDayEligible: product.sameDayEligible,
+            discountedPrice:
+                product.variants?.first.currentPrice?.toDouble() ?? 0.0,
+            brandName: product.brand?.title,
+            productId: product.id,
+            skuId: product.variants?.first.id,
+            originalPrice: product.variants?.first.originalPrice?.toDouble(),
+            rating: product.averageRating,
+            reviewsCount: product.reviewsCount,
+            isNew: product.createdAt != null,
+            pickupEligible: product.variants?.first.inventoryQuantity != null &&
+                product.variants!.first.inventoryQuantity! > 0,
           ),
         ),
       ],
@@ -276,7 +419,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             ),
             SizedBox(height: 16),
           ],
-          // Thumbnail strip
           if (images.length > 1)
             Container(
               height: 80,
@@ -319,43 +461,54 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _buildProductInfo(
-      Products product, double rating, int reviewsCount, bool isDarkTheme) {
+  Widget _buildProductInfo(Product product, String brandName, double rating,
+      int reviewsCount, bool isNew, bool isSale, bool isDarkTheme) {
     return Container(
       padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Brand Name
-          if (product.brandName?.isNotEmpty ?? false)
+          if (brandName.isNotEmpty)
             Text(
-              product.brandName!,
+              brandName.toUpperCase(),
               style: TextStyle(
-                fontSize: 14.sp,
+                fontSize: 12.sp,
                 color: Colors.grey[600],
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
               ),
             ),
           SizedBox(height: 8),
-
-          // Product Title
           Text(
-            product.displayName ?? product.productName ?? AppStrings.title,
+            product.title ?? AppStrings.title,
             style: TextStyle(
               fontSize: 22.sp,
               fontWeight: FontWeight.bold,
               color: isDarkTheme ? Colors.white : Colors.black,
+              height: 1.3,
             ),
           ),
+          if (product.subtitle?.isNotEmpty ?? false) ...[
+            SizedBox(height: 4),
+            Text(
+              product.subtitle!,
+              style: TextStyle(
+                fontSize: 14.sp,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
           SizedBox(height: 12),
-
-          // Rating and Reviews
           if (rating > 0)
             Row(
               children: [
                 ...List.generate(5, (index) {
                   return Icon(
-                    index < rating.floor() ? Icons.star : Icons.star_border,
+                    index < rating.floor()
+                        ? Icons.star
+                        : (index < rating
+                            ? Icons.star_half
+                            : Icons.star_border),
                     color: Colors.amber,
                     size: 18,
                   );
@@ -371,7 +524,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                 ),
                 SizedBox(width: 8),
                 Text(
-                  '$reviewsCount reviews',
+                  '($reviewsCount reviews)',
                   style: TextStyle(
                     fontSize: 13.sp,
                     color: Colors.grey[600],
@@ -380,20 +533,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               ],
             ),
           SizedBox(height: 12),
-
-          // Tags/Badges
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              if (product.currentSku?.isNew ?? false)
-                _buildTag('New', isDarkTheme),
-              if (product.currentSku?.isSephoraExclusive ?? false)
-                _buildTag('Sephora Exclusive', isDarkTheme),
-              if (product.currentSku?.isLimitedEdition ?? false)
-                _buildTag('Limited Edition', isDarkTheme),
-              if (product.moreColors != null && product.moreColors! > 0)
-                _buildTag('${product.moreColors} Colors', isDarkTheme),
+              if (isNew) _buildTag('NEW', Colors.green, isDarkTheme),
+              if (product.tags != null && product.tags!.isNotEmpty)
+                ...product.tags!.take(3).map((tagObj) {
+                  final tag = tagObj.tag;
+                  if (tag?.title != null) {
+                    return _buildTag(tag!.title!, Colors.green, isDarkTheme);
+                  }
+                  return SizedBox.shrink();
+                }).toList(),
             ],
           ),
         ],
@@ -401,35 +553,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _buildTag(String label, bool isDarkTheme) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: isDarkTheme ? Colors.grey[850] : Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDarkTheme ? Colors.grey[700]! : Colors.grey[300]!,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.check_circle, size: 14, color: Colors.green),
-          SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.sp,
-              color: isDarkTheme ? Colors.white70 : Colors.black87,
-            ),
+  Widget _buildTag(String label, Color color, bool isDarkTheme) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.check_circle, size: 14, color: color),
+        SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.sp,
+            color: color,
+            fontWeight: FontWeight.w600,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildPriceSection(
-      double price, double currentPrice, double discount, bool isDarkTheme) {
+      int originalPrice, int currentPrice, double discount, bool isDarkTheme) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -438,7 +581,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       child: Row(
         children: [
           Text(
-            '\$${currentPrice.toStringAsFixed(2)}',
+            '₹$currentPrice',
             style: TextStyle(
               fontSize: 28.sp,
               fontWeight: FontWeight.bold,
@@ -448,7 +591,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           SizedBox(width: 12),
           if (discount > 0) ...[
             Text(
-              '\$${price.toStringAsFixed(2)}',
+              '₹$originalPrice',
               style: TextStyle(
                 fontSize: 16.sp,
                 color: Colors.grey[600],
@@ -456,19 +599,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               ),
             ),
             SizedBox(width: 12),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
+            Text(
+              '${discount.toStringAsFixed(0)}% OFF',
+              style: TextStyle(
+                fontSize: 12.sp,
                 color: Colors.green,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '${discount.toStringAsFixed(0)}% OFF',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -477,10 +613,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _buildRewardsSection(double price, bool isDarkTheme) {
+  Widget _buildRewardsSection(int price, bool isDarkTheme) {
     final points = (price * 0.1).toInt();
     return Container(
-      margin: EdgeInsets.all(16),
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color:
@@ -496,7 +632,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Get $points Rewards Points from this Purchase',
+              'Earn $points Reward Points from this Purchase',
               style: TextStyle(
                 fontSize: 13.sp,
                 color: isDarkTheme ? Colors.pink[200] : Colors.pink[900],
@@ -509,12 +645,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _buildQuantityAndAddToBag(bool isDarkTheme) {
+  Widget _buildQuantityAndAddToBag(bool inStock, bool isDarkTheme) {
     return Padding(
       padding: EdgeInsets.all(16),
       child: Row(
         children: [
-          // Quantity selector
           Container(
             decoration: BoxDecoration(
               border: Border.all(
@@ -544,6 +679,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                 ),
                 IconButton(
                   icon: Icon(Icons.add, size: 18),
+                  color: AppTheme.cartButtonColour,
                   onPressed: () {
                     setState(() => _quantity++);
                   },
@@ -552,22 +688,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             ),
           ),
           SizedBox(width: 12),
-
-          // Add to bag button
           Expanded(
             child: ElevatedButton(
-              onPressed: () {
-                // generateAndSavePDF(context, widget.product);
-              },
+              onPressed: inStock
+                  ? () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('$_quantity item(s) added to bag'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF8B4049),
+                backgroundColor:
+                    inStock ? AppTheme.cartButtonColour : Colors.grey,
+                disabledBackgroundColor: Colors.grey,
                 padding: EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
               child: Text(
-                AppStrings.addToBag,
+                inStock ? AppStrings.addToBag : 'Out of Stock',
                 style: TextStyle(
                   fontSize: 15.sp,
                   fontWeight: FontWeight.bold,
@@ -582,7 +725,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _buildTabSection(Products product, bool isDarkTheme) {
+  Widget _buildTabSection(Product product, bool isDarkTheme) {
     return Column(
       children: [
         Container(
@@ -606,21 +749,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               fontWeight: FontWeight.w600,
             ),
             tabs: [
-              Tab(text: 'Product Description'),
+              Tab(text: 'Description'),
               Tab(text: 'Details'),
-              Tab(text: 'How to Use'),
-              Tab(text: 'Shipping & Handling'),
+              Tab(text: 'Categories'),
+              Tab(text: 'Reviews ($_totalReviews)'),
+              Tab(text: 'Shipping'),
             ],
           ),
         ),
         Container(
-          height: 300.h,
+          height: 400.h,
           child: TabBarView(
             controller: _tabController,
             children: [
               _buildDescriptionTab(product, isDarkTheme),
               _buildDetailsTab(product, isDarkTheme),
-              _buildHowToUseTab(isDarkTheme),
+              _buildCategoriesTab(product, isDarkTheme),
+              _buildReviewsTab(isDarkTheme),
               _buildShippingTab(isDarkTheme),
             ],
           ),
@@ -629,15 +774,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _buildDescriptionTab(Products product, bool isDarkTheme) {
+  Widget _buildDescriptionTab(Product product, bool isDarkTheme) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (product.currentSku?.imageAltText?.isNotEmpty ?? false)
+          if (product.description?.isNotEmpty ?? false)
             Text(
-              product.currentSku!.imageAltText!,
+              product.description!.replaceAll(RegExp(r'<[^>]*>'), ''),
               style: TextStyle(
                 fontSize: 14.sp,
                 color: isDarkTheme ? Colors.white70 : Colors.black87,
@@ -646,7 +791,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             )
           else
             Text(
-              AppStrings.description,
+              'No description available.',
               style: TextStyle(
                 fontSize: 14.sp,
                 color: isDarkTheme ? Colors.white70 : Colors.black87,
@@ -658,39 +803,244 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _buildDetailsTab(Products product, bool isDarkTheme) {
+  Widget _buildDetailsTab(Product product, bool isDarkTheme) {
+    final variant = product.variants?.first;
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (product.brandName != null) ...[
-            _buildDetailRow('Brand', product.brandName!, isDarkTheme),
+          if (product.brand?.title != null) ...[
+            _buildDetailRow('Brand', product.brand!.title!, isDarkTheme),
             Divider(height: 24),
           ],
-          if (product.productId != null) ...[
-            _buildDetailRow('Product ID', product.productId!, isDarkTheme),
+          if (product.id != null) ...[
+            _buildDetailRow('Product ID', product.id!, isDarkTheme),
             Divider(height: 24),
           ],
-          if (product.currentSku?.skuId != null) ...[
-            _buildDetailRow('SKU', product.currentSku!.skuId!, isDarkTheme),
+          if (variant?.id != null) ...[
+            _buildDetailRow('Variant ID', variant!.id!, isDarkTheme),
             Divider(height: 24),
           ],
-          if (product.pickupEligible != null) ...[
+          if (variant?.inventoryQuantity != null) ...[
             _buildDetailRow(
-                'Store Pickup',
-                product.pickupEligible! ? 'Available' : 'Not Available',
-                isDarkTheme),
+                'Stock', '${variant!.inventoryQuantity!} units', isDarkTheme),
             Divider(height: 24),
           ],
-          if (product.sameDayEligible != null) ...[
+          if (product.status != null) ...[
+            _buildDetailRow('Status', product.status!, isDarkTheme),
+            Divider(height: 24),
+          ],
+          if (product.publishedAt != null) ...[
             _buildDetailRow(
-                'Same Day Delivery',
-                product.sameDayEligible! ? 'Available' : 'Not Available',
-                isDarkTheme),
+              'Published',
+              DateTime.parse(product.publishedAt!).toString().split(' ')[0],
+              isDarkTheme,
+            ),
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildCategoriesTab(Product product, bool isDarkTheme) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (product.productCategories != null &&
+              product.productCategories!.isNotEmpty) ...[
+            Text(
+              'Product Categories:',
+              style: TextStyle(
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w600,
+                color: isDarkTheme ? Colors.white : Colors.black87,
+              ),
+            ),
+            SizedBox(height: 12),
+            ...product.productCategories!.map((categoryObj) {
+              final category = categoryObj.category;
+              if (category?.name != null) {
+                return Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.label,
+                          size: 16, color: AppTheme.secondaryColor),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          category!.name!,
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color:
+                                isDarkTheme ? Colors.white70 : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return SizedBox.shrink();
+            }).toList(),
+          ] else
+            Text(
+              'No categories available.',
+              style: TextStyle(
+                fontSize: 14.sp,
+                color: isDarkTheme ? Colors.white70 : Colors.black87,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewsTab(bool isDarkTheme) {
+    if (_isLoadingReviews) {
+      return Center(
+        child: CircularProgressIndicator(
+          color: AppTheme.secondaryColor,
+        ),
+      );
+    }
+
+    if (_reviews.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.rate_review_outlined, size: 48, color: Colors.grey[400]),
+            SizedBox(height: 16),
+            Text(
+              'No reviews yet',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: isDarkTheme ? Colors.white70 : Colors.black87,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Be the first to review this product',
+              style: TextStyle(
+                fontSize: 12.sp,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: EdgeInsets.all(16),
+      itemCount: _reviews.length,
+      separatorBuilder: (context, index) => Divider(height: 24),
+      itemBuilder: (context, index) {
+        final review = _reviews[index];
+        final customerName =
+            '${review.firstName ?? ''} ${review.lastName ?? ''}'.trim();
+        final rating = review.rating ?? 0;
+        final comment = review.comment ?? '';
+        final createdAt =
+            review.createdAt != null ? DateTime.parse(review.createdAt!) : null;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: AppTheme.secondaryColor,
+                  child: Text(
+                    customerName.isNotEmpty? customerName[0].toUpperCase()
+                        : 'U',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        customerName.isNotEmpty ? customerName : 'Anonymous',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: isDarkTheme ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      if (createdAt != null)
+                        Text(
+                          '${createdAt.day}/${createdAt.month}/${createdAt.year}',
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            Row(
+              children: List.generate(5, (starIndex) {
+                return Icon(
+                  starIndex < rating ? Icons.star : Icons.star_border,
+                  color: Colors.amber,
+                  size: 16,
+                );
+              }),
+            ),
+            if (comment.isNotEmpty) ...[
+              SizedBox(height: 8),
+              Text(
+                comment,
+                style: TextStyle(
+                  fontSize: 13.sp,
+                  color: isDarkTheme ? Colors.white70 : Colors.black87,
+                  height: 1.4,
+                ),
+              ),
+            ],
+            if (review.isPurchased == true) ...[
+              SizedBox(height: 8),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.green),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.verified, size: 14, color: Colors.green),
+                    SizedBox(width: 4),
+                    Text(
+                      'Verified Purchase',
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -723,33 +1073,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _buildHowToUseTab(bool isDarkTheme) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Text(
-        'Apply the product as directed. For best results, use regularly as part of your beauty routine.',
-        style: TextStyle(
-          fontSize: 14.sp,
-          color: isDarkTheme ? Colors.white70 : Colors.black87,
-          height: 1.6,
-        ),
-      ),
-    );
-  }
-
   Widget _buildShippingTab(bool isDarkTheme) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildShippingInfo(
-              AppStrings.standardDelivery, AppStrings.standardDeliveryTime, isDarkTheme),
+          _buildShippingInfo(AppStrings.standardDelivery,
+              AppStrings.standardDeliveryTime, isDarkTheme),
+          SizedBox(height: 12),
+          _buildShippingInfo(AppStrings.expressDelivery,
+              AppStrings.expressDeliveryTime, isDarkTheme),
           SizedBox(height: 12),
           _buildShippingInfo(
-              AppStrings.expressDelivery, AppStrings.expressDeliveryTime, isDarkTheme),
-          SizedBox(height: 12),
-          _buildShippingInfo(AppStrings.returnPolicy, AppStrings.returnPolicy, isDarkTheme),
+              AppStrings.returnPolicy, AppStrings.returnPolicy, isDarkTheme),
         ],
       ),
     );
@@ -760,25 +1097,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       children: [
         Icon(Icons.local_shipping, color: AppTheme.secondaryColor, size: 20),
         SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: isDarkTheme ? Colors.white : Colors.black87,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: isDarkTheme ? Colors.white : Colors.black87,
+                ),
               ),
-            ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12.sp,
-                color: Colors.grey[600],
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: Colors.grey[600],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );

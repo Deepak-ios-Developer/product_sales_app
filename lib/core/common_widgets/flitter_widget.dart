@@ -1,33 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:product_sale_app/core/themes/app_theme.dart';
+import '../model/product_model.dart';
 
 class FiltersScreen extends StatefulWidget {
-  final Set<String> selectedBrands;
+  final Set<String> selectedBrandIds;
+  final Set<String> selectedBrandNames;
   final double minRating;
-  final String? priceRange;
-  final Set<String> selectedBenefits;
+  final int? minPrice;
+  final int? maxPrice;
   final Set<String> selectedSkinTypes;
-  final Set<String> selectedIngredients;
-  final bool onSale;
-  final bool newOnly;
-  final bool cleanAtSephora;
-  final Set<String> selectedColorFamily;
-  final List<String> availableBrands;
+  final Set<String> selectedSkinConcerns;
+  final Set<String> selectedProductTypes;
+  final bool inStock;
+  final List<Brand> availableBrands;
+  final List<AttributeFilter> availableAttributes;
 
   const FiltersScreen({
     super.key,
-    required this.selectedBrands,
+    required this.selectedBrandIds,
+    required this.selectedBrandNames,
     required this.minRating,
-    this.priceRange,
-    required this.selectedBenefits,
+    this.minPrice,
+    this.maxPrice,
     required this.selectedSkinTypes,
-    required this.selectedIngredients,
-    required this.onSale,
-    required this.newOnly,
-    required this.cleanAtSephora,
-    required this.selectedColorFamily,
+    required this.selectedSkinConcerns,
+    required this.selectedProductTypes,
+    required this.inStock,
     required this.availableBrands,
+    required this.availableAttributes,
   });
 
   @override
@@ -35,89 +36,82 @@ class FiltersScreen extends StatefulWidget {
 }
 
 class _FiltersScreenState extends State<FiltersScreen> {
-  late Set<String> _selectedBrands;
+  late Set<String> _selectedBrandIds;
+  late Set<String> _selectedBrandNames;
   late double _minRating;
-  late String? _priceRange;
-  late Set<String> _selectedBenefits;
+  late int? _minPrice;
+  late int? _maxPrice;
   late Set<String> _selectedSkinTypes;
-  late Set<String> _selectedIngredients;
-  late bool _onSale;
-  late bool _newOnly;
-  late bool _cleanAtSephora;
-  late Set<String> _selectedColorFamily;
+  late Set<String> _selectedSkinConcerns;
+  late Set<String> _selectedProductTypes;
+  late bool _inStock;
 
   String _selectedCategory = 'Brand';
   final TextEditingController _brandSearchController = TextEditingController();
-  List<String> _filteredBrands = [];
+  final TextEditingController _minPriceController = TextEditingController();
+  final TextEditingController _maxPriceController = TextEditingController();
+  
+  List<Brand> _filteredBrands = [];
 
   final List<String> _categories = [
     'Brand',
-    'Color',
     'Price',
     'Rating',
-    'Benefits',
     'Skin Type',
-    'Ingredients',
+    'Skin Concern',
+    'Product Type',
     'More Filters',
   ];
 
-  final List<Map<String, dynamic>> _colorFamilies = [
-    {'name': 'Nude', 'color': Color(0xFFE8CDB2)},
-    {'name': 'Pink', 'color': Colors.pink},
-    {'name': 'Red', 'color': Colors.red},
-    {'name': 'Brown', 'color': Colors.brown},
-    {'name': 'Purple', 'color': Colors.purple},
-    {'name': 'Berry', 'color': Color(0xFF8B2252)},
-    {'name': 'Coral', 'color': Color(0xFFFF7F50)},
-    {'name': 'Orange', 'color': Colors.orange},
+  final List<Map<String, dynamic>> _priceRanges = [
+    {'label': 'Under ₹500', 'min': null, 'max': 500},
+    {'label': '₹500 - ₹1000', 'min': 500, 'max': 1000},
+    {'label': '₹1000 - ₹1500', 'min': 1000, 'max': 1500},
+    {'label': '₹1500 - ₹2000', 'min': 1500, 'max': 2000},
+    {'label': '₹2000 and above', 'min': 2000, 'max': null},
   ];
 
-  final List<Map<String, String>> _priceRanges = [
-    {'label': 'Under \$25', 'value': 'pl=min&ph=25'},
-    {'label': '\$25 to \$50', 'value': 'pl=25&ph=50'},
-    {'label': '\$50 to \$100', 'value': 'pl=50&ph=100'},
-    {'label': '\$100 and above', 'value': 'pl=100&ph=max'},
-  ];
-
-  final List<String> _benefits = [
-    'Hydrating',
-    'Long-wearing',
-    'Transfer-resistant',
-    'Plumping',
-    'Moisturizing',
-  ];
-
-  final List<String> _skinTypes = [
-    'Normal',
-    'Dry',
-    'Oily',
-    'Combination',
-    'Sensitive',
-  ];
-
-  final List<String> _ingredients = [
-    'Vegan',
-    'Clean at Sephora',
-    'Paraben-free',
-    'Cruelty-Free',
-    'Sulfate-free',
-    'Fragrance Free',
-  ];
+  // Get available options from attributes
+  List<String> _skinTypeOptions = [];
+  List<String> _skinConcernOptions = [];
+  List<String> _productTypeOptions = [];
 
   @override
   void initState() {
     super.initState();
-    _selectedBrands = Set.from(widget.selectedBrands);
+    _selectedBrandIds = Set.from(widget.selectedBrandIds);
+    _selectedBrandNames = Set.from(widget.selectedBrandNames);
     _minRating = widget.minRating;
-    _priceRange = widget.priceRange;
-    _selectedBenefits = Set.from(widget.selectedBenefits);
+    _minPrice = widget.minPrice;
+    _maxPrice = widget.maxPrice;
     _selectedSkinTypes = Set.from(widget.selectedSkinTypes);
-    _selectedIngredients = Set.from(widget.selectedIngredients);
-    _onSale = widget.onSale;
-    _newOnly = widget.newOnly;
-    _cleanAtSephora = widget.cleanAtSephora;
-    _selectedColorFamily = Set.from(widget.selectedColorFamily);
+    _selectedSkinConcerns = Set.from(widget.selectedSkinConcerns);
+    _selectedProductTypes = Set.from(widget.selectedProductTypes);
+    _inStock = widget.inStock;
     _filteredBrands = List.from(widget.availableBrands);
+
+    // Initialize price controllers
+    if (_minPrice != null) {
+      _minPriceController.text = _minPrice.toString();
+    }
+    if (_maxPrice != null) {
+      _maxPriceController.text = _maxPrice.toString();
+    }
+
+    // Extract options from attributes
+    _extractAttributeOptions();
+  }
+
+  void _extractAttributeOptions() {
+    for (var attribute in widget.availableAttributes) {
+      if (attribute.code == 'SKIN_TYPE') {
+        _skinTypeOptions = attribute.values?.map((v) => v.value ?? '').where((v) => v.isNotEmpty).toList() ?? [];
+      } else if (attribute.code == 'SKIN_CONCERN') {
+        _skinConcernOptions = attribute.values?.map((v) => v.value ?? '').where((v) => v.isNotEmpty).toList() ?? [];
+      } else if (attribute.code == 'PRODUCT_TYPE') {
+        _productTypeOptions = attribute.values?.map((v) => v.value ?? '').where((v) => v.isNotEmpty).toList() ?? [];
+      }
+    }
   }
 
   void _filterBrands(String query) {
@@ -126,7 +120,8 @@ class _FiltersScreenState extends State<FiltersScreen> {
         _filteredBrands = List.from(widget.availableBrands);
       } else {
         _filteredBrands = widget.availableBrands
-            .where((brand) => brand.toLowerCase().contains(query.toLowerCase()))
+            .where((brand) =>
+                (brand.title ?? brand.name ?? '').toLowerCase().contains(query.toLowerCase()))
             .toList();
       }
     });
@@ -134,31 +129,29 @@ class _FiltersScreenState extends State<FiltersScreen> {
 
   void _clearAllFilters() {
     setState(() {
-      _selectedBrands.clear();
+      _selectedBrandIds.clear();
+      _selectedBrandNames.clear();
       _minRating = 0;
-      _priceRange = null;
-      _selectedBenefits.clear();
+      _minPrice = null;
+      _maxPrice = null;
       _selectedSkinTypes.clear();
-      _selectedIngredients.clear();
-      _onSale = false;
-      _newOnly = false;
-      _cleanAtSephora = false;
-      _selectedColorFamily.clear();
+      _selectedSkinConcerns.clear();
+      _selectedProductTypes.clear();
+      _inStock = false;
+      _minPriceController.clear();
+      _maxPriceController.clear();
     });
   }
 
   int _getAppliedFiltersCount() {
     int count = 0;
-    if (_selectedBrands.isNotEmpty) count++;
+    if (_selectedBrandIds.isNotEmpty) count++;
     if (_minRating > 0) count++;
-    if (_priceRange != null) count++;
-    if (_selectedBenefits.isNotEmpty) count++;
+    if (_minPrice != null || _maxPrice != null) count++;
     if (_selectedSkinTypes.isNotEmpty) count++;
-    if (_selectedIngredients.isNotEmpty) count++;
-    if (_onSale) count++;
-    if (_newOnly) count++;
-    if (_cleanAtSephora) count++;
-    if (_selectedColorFamily.isNotEmpty) count++;
+    if (_selectedSkinConcerns.isNotEmpty) count++;
+    if (_selectedProductTypes.isNotEmpty) count++;
+    if (_inStock) count++;
     return count;
   }
 
@@ -208,7 +201,7 @@ class _FiltersScreenState extends State<FiltersScreen> {
               itemBuilder: (context, index) {
                 final category = _categories[index];
                 final isSelected = _selectedCategory == category;
-                
+
                 return InkWell(
                   onTap: () {
                     setState(() => _selectedCategory = category);
@@ -272,7 +265,7 @@ class _FiltersScreenState extends State<FiltersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${widget.availableBrands.length} products',
+                      '${widget.availableBrands.length} brands available',
                       style: TextStyle(
                         fontSize: 16.sp,
                         fontWeight: FontWeight.bold,
@@ -294,16 +287,15 @@ class _FiltersScreenState extends State<FiltersScreen> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context, {
-                    'brands': _selectedBrands,
+                    'brandIds': _selectedBrandIds,
+                    'brandNames': _selectedBrandNames,
                     'rating': _minRating,
-                    'priceRange': _priceRange,
-                    'benefits': _selectedBenefits,
+                    'minPrice': _minPrice,
+                    'maxPrice': _maxPrice,
                     'skinTypes': _selectedSkinTypes,
-                    'ingredients': _selectedIngredients,
-                    'onSale': _onSale,
-                    'newOnly': _newOnly,
-                    'cleanAtSephora': _cleanAtSephora,
-                    'colorFamily': _selectedColorFamily,
+                    'skinConcerns': _selectedSkinConcerns,
+                    'productTypes': _selectedProductTypes,
+                    'inStock': _inStock,
                   });
                 },
                 style: ElevatedButton.styleFrom(
@@ -333,18 +325,16 @@ class _FiltersScreenState extends State<FiltersScreen> {
     switch (_selectedCategory) {
       case 'Brand':
         return _buildBrandFilter();
-      case 'Color':
-        return _buildColorFilter();
       case 'Price':
         return _buildPriceFilter();
       case 'Rating':
         return _buildRatingFilter();
-      case 'Benefits':
-        return _buildBenefitsFilter();
       case 'Skin Type':
         return _buildSkinTypeFilter();
-      case 'Ingredients':
-        return _buildIngredientsFilter();
+      case 'Skin Concern':
+        return _buildSkinConcernFilter();
+      case 'Product Type':
+        return _buildProductTypeFilter();
       case 'More Filters':
         return _buildMoreFilters();
       default:
@@ -354,7 +344,7 @@ class _FiltersScreenState extends State<FiltersScreen> {
 
   Widget _buildBrandFilter() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Column(
       children: [
         // Search bar
@@ -379,7 +369,7 @@ class _FiltersScreenState extends State<FiltersScreen> {
             onChanged: _filterBrands,
           ),
         ),
-        
+
         // Popular filters header
         if (_brandSearchController.text.isEmpty) ...[
           Container(
@@ -387,7 +377,7 @@ class _FiltersScreenState extends State<FiltersScreen> {
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             color: isDark ? Colors.grey[850] : Colors.grey[100],
             child: Text(
-              'Popular Filters',
+              'Popular Brands',
               style: TextStyle(
                 fontSize: 13.sp,
                 fontWeight: FontWeight.w600,
@@ -396,97 +386,136 @@ class _FiltersScreenState extends State<FiltersScreen> {
             ),
           ),
         ],
-        
+
         // Brand list
         Expanded(
-          child: ListView.builder(
-            itemCount: _filteredBrands.length,
-            itemBuilder: (context, index) {
-              final brand = _filteredBrands[index];
-              final isSelected = _selectedBrands.contains(brand);
-              
-              return CheckboxListTile(
-                title: Text(
-                  brand,
-                  style: TextStyle(fontSize: 14.sp),
+          child: _filteredBrands.isEmpty
+              ? Center(
+                  child: Text(
+                    'No brands found',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _filteredBrands.length,
+                  itemBuilder: (context, index) {
+                    final brand = _filteredBrands[index];
+                    final brandId = brand.id ?? '';
+                    final brandName = brand.title ?? brand.name ?? '';
+                    final isSelected = _selectedBrandIds.contains(brandId);
+                    final productCount = brand.productCount ?? 0;
+
+                    return CheckboxListTile(
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              brandName,
+                              style: TextStyle(fontSize: 14.sp),
+                            ),
+                          ),
+                          Text(
+                            '($productCount)',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                      value: isSelected,
+                      activeColor: AppTheme.secondaryColor,
+                      onChanged: (value) {
+                        setState(() {
+                          if (value == true) {
+                            _selectedBrandIds.add(brandId);
+                            _selectedBrandNames.add(brandName);
+                          } else {
+                            _selectedBrandIds.remove(brandId);
+                            _selectedBrandNames.remove(brandName);
+                          }
+                        });
+                      },
+                    );
+                  },
                 ),
-                value: isSelected,
-                activeColor: AppTheme.secondaryColor,
-                onChanged: (value) {
-                  setState(() {
-                    if (value == true) {
-                      _selectedBrands.add(brand);
-                    } else {
-                      _selectedBrands.remove(brand);
-                    }
-                  });
-                },
-              );
-            },
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildColorFilter() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    return ListView(
-      padding: EdgeInsets.all(16),
-      children: _colorFamilies.map((colorData) {
-        final colorName = colorData['name'] as String;
-        final color = colorData['color'] as Color;
-        final isSelected = _selectedColorFamily.contains(colorName.toLowerCase());
-        
-        return CheckboxListTile(
-          title: Row(
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.grey[300]!, width: 1),
-                ),
-              ),
-              SizedBox(width: 12),
-              Text(colorName, style: TextStyle(fontSize: 14.sp)),
-            ],
-          ),
-          value: isSelected,
-          activeColor: AppTheme.secondaryColor,
-          onChanged: (value) {
-            setState(() {
-              if (value == true) {
-                _selectedColorFamily.add(colorName.toLowerCase());
-              } else {
-                _selectedColorFamily.remove(colorName.toLowerCase());
-              }
-            });
-          },
-        );
-      }).toList(),
-    );
-  }
-
   Widget _buildPriceFilter() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ListView(
       padding: EdgeInsets.all(16),
-      children: _priceRanges.map((range) {
-        final isSelected = _priceRange == range['value'];
-        
-        return RadioListTile<String>(
-          title: Text(range['label']!, style: TextStyle(fontSize: 14.sp)),
-          value: range['value']!,
-          groupValue: _priceRange,
-          activeColor: AppTheme.secondaryColor,
-          onChanged: (value) {
-            setState(() => _priceRange = value);
-          },
-        );
-      }).toList(),
+      children: [
+        // Predefined ranges
+        ..._priceRanges.map((range) {
+          final isSelected = _minPrice == range['min'] && _maxPrice == range['max'];
+
+          return RadioListTile<String>(
+            title: Text(range['label']!, style: TextStyle(fontSize: 14.sp)),
+            value: range['label']!,
+            groupValue: isSelected ? range['label'] : null,
+            activeColor: AppTheme.secondaryColor,
+            onChanged: (value) {
+              setState(() {
+                _minPrice = range['min'];
+                _maxPrice = range['max'];
+                _minPriceController.text = _minPrice?.toString() ?? '';
+                _maxPriceController.text = _maxPrice?.toString() ?? '';
+              });
+            },
+          );
+        }).toList(),
+
+        Divider(height: 32),
+
+        // Custom range
+        Text(
+          'Custom Price Range',
+          style: TextStyle(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _minPriceController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Min Price',
+                  prefixText: '₹',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  _minPrice = int.tryParse(value);
+                },
+              ),
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              child: TextField(
+                controller: _maxPriceController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Max Price',
+                  prefixText: '₹',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  _maxPrice = int.tryParse(value);
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -494,8 +523,6 @@ class _FiltersScreenState extends State<FiltersScreen> {
     return ListView(
       padding: EdgeInsets.all(16),
       children: [4, 3, 2, 1].map((rating) {
-        final isSelected = _minRating == rating.toDouble();
-        
         return RadioListTile<double>(
           title: Row(
             children: [
@@ -515,75 +542,111 @@ class _FiltersScreenState extends State<FiltersScreen> {
     );
   }
 
-  Widget _buildBenefitsFilter() {
-    return ListView(
-      padding: EdgeInsets.all(16),
-      children: _benefits.map((benefit) {
-        final isSelected = _selectedBenefits.contains(benefit.toLowerCase());
-        
-        return CheckboxListTile(
-          title: Text(benefit, style: TextStyle(fontSize: 14.sp)),
-          value: isSelected,
-          activeColor: AppTheme.secondaryColor,
-          onChanged: (value) {
-            setState(() {
-              if (value == true) {
-                _selectedBenefits.add(benefit.toLowerCase());
-              } else {
-                _selectedBenefits.remove(benefit.toLowerCase());
-              }
-            });
-          },
-        );
-      }).toList(),
-    );
-  }
-
   Widget _buildSkinTypeFilter() {
     return ListView(
       padding: EdgeInsets.all(16),
-      children: _skinTypes.map((type) {
-        final isSelected = _selectedSkinTypes.contains(type.toLowerCase());
-        
-        return CheckboxListTile(
-          title: Text(type, style: TextStyle(fontSize: 14.sp)),
-          value: isSelected,
-          activeColor: AppTheme.secondaryColor,
-          onChanged: (value) {
-            setState(() {
-              if (value == true) {
-                _selectedSkinTypes.add(type.toLowerCase());
-              } else {
-                _selectedSkinTypes.remove(type.toLowerCase());
-              }
-            });
-          },
-        );
-      }).toList(),
+      children: _skinTypeOptions.isEmpty
+          ? [
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'No skin types available',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ),
+              )
+            ]
+          : _skinTypeOptions.map((type) {
+              final isSelected = _selectedSkinTypes.contains(type);
+
+              return CheckboxListTile(
+                title: Text(type, style: TextStyle(fontSize: 14.sp)),
+                value: isSelected,
+                activeColor: AppTheme.secondaryColor,
+                onChanged: (value) {
+                  setState(() {
+                    if (value == true) {
+                      _selectedSkinTypes.add(type);
+                    } else {
+                      _selectedSkinTypes.remove(type);
+                    }
+                  });
+                },
+              );
+            }).toList(),
     );
   }
 
-  Widget _buildIngredientsFilter() {
+  Widget _buildSkinConcernFilter() {
     return ListView(
       padding: EdgeInsets.all(16),
-      children: _ingredients.map((ingredient) {
-        final isSelected = _selectedIngredients.contains(ingredient.toLowerCase());
-        
-        return CheckboxListTile(
-          title: Text(ingredient, style: TextStyle(fontSize: 14.sp)),
-          value: isSelected,
-          activeColor: AppTheme.secondaryColor,
-          onChanged: (value) {
-            setState(() {
-              if (value == true) {
-                _selectedIngredients.add(ingredient.toLowerCase());
-              } else {
-                _selectedIngredients.remove(ingredient.toLowerCase());
-              }
-            });
-          },
-        );
-      }).toList(),
+      children: _skinConcernOptions.isEmpty
+          ? [
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'No skin concerns available',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ),
+              )
+            ]
+          : _skinConcernOptions.map((concern) {
+              final isSelected = _selectedSkinConcerns.contains(concern);
+
+              return CheckboxListTile(
+                title: Text(concern, style: TextStyle(fontSize: 14.sp)),
+                value: isSelected,
+                activeColor: AppTheme.secondaryColor,
+                onChanged: (value) {
+                  setState(() {
+                    if (value == true) {
+                      _selectedSkinConcerns.add(concern);
+                    } else {
+                      _selectedSkinConcerns.remove(concern);
+                    }
+                  });
+                },
+              );
+            }).toList(),
+    );
+  }
+
+  Widget _buildProductTypeFilter() {
+    return ListView(
+      padding: EdgeInsets.all(16),
+      children: _productTypeOptions.isEmpty
+          ? [
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'No product types available',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ),
+              )
+            ]
+          : _productTypeOptions.map((type) {
+              final isSelected = _selectedProductTypes.contains(type);
+
+              return CheckboxListTile(
+                title: Text(type, style: TextStyle(fontSize: 14.sp)),
+                value: isSelected,
+                activeColor: AppTheme.secondaryColor,
+                onChanged: (value) {
+                  setState(() {
+                    if (value == true) {
+                      _selectedProductTypes.add(type);
+                    } else {
+                      _selectedProductTypes.remove(type);
+                    }
+                  });
+                },
+              );
+            }).toList(),
     );
   }
 
@@ -592,27 +655,12 @@ class _FiltersScreenState extends State<FiltersScreen> {
       padding: EdgeInsets.all(16),
       children: [
         SwitchListTile(
-          title: Text('On Sale', style: TextStyle(fontSize: 14.sp)),
-          value: _onSale,
+          title: Text('In Stock Only', style: TextStyle(fontSize: 14.sp)),
+          subtitle: Text('Show only products available in stock'),
+          value: _inStock,
           activeColor: AppTheme.secondaryColor,
           onChanged: (value) {
-            setState(() => _onSale = value);
-          },
-        ),
-        SwitchListTile(
-          title: Text('New Arrivals', style: TextStyle(fontSize: 14.sp)),
-          value: _newOnly,
-          activeColor: AppTheme.secondaryColor,
-          onChanged: (value) {
-            setState(() => _newOnly = value);
-          },
-        ),
-        SwitchListTile(
-          title: Text('Clean at Sephora', style: TextStyle(fontSize: 14.sp)),
-          value: _cleanAtSephora,
-          activeColor: AppTheme.secondaryColor,
-          onChanged: (value) {
-            setState(() => _cleanAtSephora = value);
+            setState(() => _inStock = value);
           },
         ),
       ],
@@ -622,6 +670,8 @@ class _FiltersScreenState extends State<FiltersScreen> {
   @override
   void dispose() {
     _brandSearchController.dispose();
+    _minPriceController.dispose();
+    _maxPriceController.dispose();
     super.dispose();
   }
 }

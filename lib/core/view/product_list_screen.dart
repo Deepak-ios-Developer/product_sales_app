@@ -26,12 +26,13 @@ class ProductListingScreen extends StatefulWidget {
 
 class _ProductListingScreenState extends State<ProductListingScreen>
     with SingleTickerProviderStateMixin {
-  List<Products> products = [];
-  List<Products> filteredProducts = [];
-  Set<String> brands = {};
-  List<String> filteredBrands = [];
+  List<Product> products = [];
+  List<Product> filteredProducts = [];
+  List<Brand> brands = [];
+  List<Brand> filteredBrands = [];
+  List<AttributeFilter> attributes = [];
   Timer? _debounce;
-  final int _debounceDuration = 800; // milliseconds
+  final int _debounceDuration = 800;
 
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
@@ -42,26 +43,26 @@ class _ProductListingScreenState extends State<ProductListingScreen>
   bool _isLoadingMore = false;
   bool _hasMoreData = true;
 
-  // Pagination variables
   int _currentPage = 1;
-  final int _pageSize = 60;
+  final int _pageSize = 20;
   int _totalProducts = 0;
+  int _totalPages = 0;
 
   String _sortBy = 'relevance';
+  String _sortOrder = 'desc';
   double _minRating = 0;
-  Set<String> _selectedBrands = {};
+  Set<String> _selectedBrandIds = {};
+  Set<String> _selectedBrandNames = {};
 
   late TabController _tabController;
 
-  // Filter properties
-  Set<String> _selectedBenefits = {};
   Set<String> _selectedSkinTypes = {};
-  Set<String> _selectedIngredients = {};
-  bool _onSale = false;
-  bool _newOnly = false;
-  bool _cleanAtSephora = false;
-  Set<String> _selectedColorFamily = {};
-  String? _priceRange;
+  Set<String> _selectedSkinConcerns = {};
+  Set<String> _selectedProductTypes = {};
+  bool _inStock = false;
+  int? _minPrice;
+  int? _maxPrice;
+  String? _selectedCategoryId;
 
   @override
   void initState() {
@@ -86,39 +87,44 @@ class _ProductListingScreenState extends State<ProductListingScreen>
     });
 
     try {
-      final fetchedProductData = await ProductService.fetchProducts(
-        query: _searchController.text.isEmpty
-            ? 'lipstick'
-            : _searchController.text,
-        currentPage: _currentPage,
-        pageSize: _pageSize,
+      final response = await ProductService.fetchProducts(
+        query: _searchController.text.isEmpty ? null : _searchController.text,
+        page: _currentPage,
+        limit: _pageSize,
         sortBy: _getSortByValue(_sortBy),
-        brand: _selectedBrands.isNotEmpty ? _selectedBrands.first : null,
-        rating: _minRating > 0 ? '"${_minRating.toInt()}"-"inf"' : null,
-        priceRange: _priceRange,
-        onSale: _onSale,
-        newOnly: _newOnly,
-        cleanAtSephora: _cleanAtSephora,
+        sortOrder: _sortOrder,
+        brandId: _selectedBrandIds.isNotEmpty ? _selectedBrandIds.first : null,
+        categoryId: _selectedCategoryId,
+        skinType:
+            _selectedSkinTypes.isNotEmpty ? _selectedSkinTypes.first : null,
+        skinConcern: _selectedSkinConcerns.isNotEmpty
+            ? _selectedSkinConcerns.first
+            : null,
+        productType: _selectedProductTypes.isNotEmpty
+            ? _selectedProductTypes.first
+            : null,
+        minPrice: _minPrice,
+        maxPrice: _maxPrice,
+        minRating: _minRating > 0 ? _minRating : null,
+        inStock: _inStock,
       );
 
       setState(() {
         if (loadMore) {
-          products.addAll(fetchedProductData.products ?? []);
+          products.addAll(response.data?.products ?? []);
         } else {
-          products = fetchedProductData.products ?? [];
+          products = response.data?.products ?? [];
         }
 
-        _totalProducts = fetchedProductData.totalProducts ?? 0;
-        _hasMoreData = products.length < _totalProducts;
+        _totalProducts = response.meta?.total ?? 0;
+        _totalPages = response.meta?.lastPage ?? 0;
+        _hasMoreData = ProductService.hasNextPage(response);
 
-        // Extract unique brands
-        brands = products
-            .where((p) => p.brandName != null && p.brandName!.isNotEmpty)
-            .map((p) => p.brandName!)
-            .toSet();
-        filteredBrands = brands.toList()..sort();
+        brands = response.data?.brands ?? [];
+        attributes = response.data?.attributes ?? [];
+        filteredBrands = List.from(brands);
 
-        _applyFiltersAndSort();
+        filteredProducts = List.from(products);
         _isLoading = false;
         _isLoadingMore = false;
       });
@@ -127,8 +133,15 @@ class _ProductListingScreenState extends State<ProductListingScreen>
         _isLoading = false;
         _isLoadingMore = false;
       });
-      if (kDebugMode) {
-        print('Error fetching products: $error');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load products: ${error.toString()}'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
     }
   }
@@ -140,14 +153,12 @@ class _ProductListingScreenState extends State<ProductListingScreen>
   }
 
   void _scrollListener() {
-    // Show/hide scroll to top button
     if (_scrollController.offset >= 400) {
       if (!_showTopButton) setState(() => _showTopButton = true);
     } else {
       if (_showTopButton) setState(() => _showTopButton = false);
     }
 
-    // Auto-load more when near bottom
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       _loadMoreProducts();
@@ -156,16 +167,18 @@ class _ProductListingScreenState extends State<ProductListingScreen>
 
   String? _getSortByValue(String sortBy) {
     switch (sortBy) {
-      case 'price_low':
-        return SortOptions.priceLowToHigh;
-      case 'price_high':
-        return SortOptions.priceHighToLow;
+      case 'price':
+        return SortOptions.priceAsc;
       case 'rating':
-        return SortOptions.topRated;
+        return SortOptions.ratingDesc;
       case 'newest':
         return SortOptions.newest;
+      case 'popular':
+        return SortOptions.popular;
+      case 'name':
+        return SortOptions.nameAsc;
       default:
-        return SortOptions.relevance;
+        return null;
     }
   }
 
@@ -179,86 +192,53 @@ class _ProductListingScreenState extends State<ProductListingScreen>
     super.dispose();
   }
 
-  double _parsePrice(String? priceString) {
-    if (priceString == null || priceString.isEmpty) return 0.0;
-
-    String cleaned = priceString.replaceAll(RegExp(r'[^\d.-]'), '');
-    if (cleaned.contains('-')) {
-      cleaned = cleaned.split('-')[0].trim();
-    }
-    return double.tryParse(cleaned) ?? 0.0;
+  int _getAppliedFiltersCount() {
+    int count = 0;
+    if (_selectedBrandIds.isNotEmpty) count++;
+    if (_minRating > 0) count++;
+    if (_minPrice != null || _maxPrice != null) count++;
+    if (_selectedSkinTypes.isNotEmpty) count++;
+    if (_selectedSkinConcerns.isNotEmpty) count++;
+    if (_selectedProductTypes.isNotEmpty) count++;
+    if (_inStock) count++;
+    if (_selectedCategoryId != null) count++;
+    return count;
   }
 
-  void _applyFiltersAndSort() {
-    List<Products> results = List.from(products);
+  Future<void> _openFiltersScreen() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FiltersScreen(
+          selectedBrandIds: _selectedBrandIds,
+          selectedBrandNames: _selectedBrandNames,
+          minRating: _minRating,
+          minPrice: _minPrice,
+          maxPrice: _maxPrice,
+          selectedSkinTypes: _selectedSkinTypes,
+          selectedSkinConcerns: _selectedSkinConcerns,
+          selectedProductTypes: _selectedProductTypes,
+          inStock: _inStock,
+          availableBrands: brands,
+          availableAttributes: attributes,
+        ),
+      ),
+    );
 
-    // Note: Search is already handled by the API, so we don't need to filter here
-    // unless we want additional client-side filtering
-
-    // Apply brand filter (for client-side filtering of multiple brands)
-    if (_selectedBrands.isNotEmpty && _selectedBrands.length > 1) {
-      results = results.where((product) {
-        final brandName = product.brandName ?? '';
-        return _selectedBrands.contains(brandName);
-      }).toList();
+    if (result != null && result is Map<String, dynamic>) {
+      setState(() {
+        _selectedBrandIds = result['brandIds'] ?? {};
+        _selectedBrandNames = result['brandNames'] ?? {};
+        _minRating = result['rating'] ?? 0.0;
+        _minPrice = result['minPrice'];
+        _maxPrice = result['maxPrice'];
+        _selectedSkinTypes = result['skinTypes'] ?? {};
+        _selectedSkinConcerns = result['skinConcerns'] ?? {};
+        _selectedProductTypes = result['productTypes'] ?? {};
+        _inStock = result['inStock'] ?? false;
+      });
+      _fetchProducts(loadMore: false);
     }
-
-    // Apply rating filter (backup client-side filter)
-    if (_minRating > 0) {
-      results = results.where((product) {
-        final rating = double.tryParse(product.rating ?? '0') ?? 0.0;
-        return rating >= _minRating;
-      }).toList();
-    }
-
-    // Client-side sorting (backup if API sorting fails)
-    switch (_sortBy) {
-      case 'price_low':
-        results.sort((a, b) {
-          final priceA =
-              _parsePrice(a.currentSku?.salePrice ?? a.currentSku?.listPrice);
-          final priceB =
-              _parsePrice(b.currentSku?.salePrice ?? b.currentSku?.listPrice);
-          return priceA.compareTo(priceB);
-        });
-        break;
-      case 'price_high':
-        results.sort((a, b) {
-          final priceA =
-              _parsePrice(a.currentSku?.salePrice ?? a.currentSku?.listPrice);
-          final priceB =
-              _parsePrice(b.currentSku?.salePrice ?? b.currentSku?.listPrice);
-          return priceB.compareTo(priceA);
-        });
-        break;
-      case 'rating':
-        results.sort((a, b) {
-          final ratingA = double.tryParse(a.rating ?? '0') ?? 0.0;
-          final ratingB = double.tryParse(b.rating ?? '0') ?? 0.0;
-          return ratingB.compareTo(ratingA);
-        });
-        break;
-      case 'reviews':
-        results.sort((a, b) {
-          final reviewsA = int.tryParse(a.reviews ?? '0') ?? 0;
-          final reviewsB = int.tryParse(b.reviews ?? '0') ?? 0;
-          return reviewsB.compareTo(reviewsA);
-        });
-        break;
-      case 'newest':
-        results.sort((a, b) {
-          final isNewA = a.currentSku?.isNew ?? false;
-          final isNewB = b.currentSku?.isNew ?? false;
-          if (isNewA && !isNewB) return -1;
-          if (!isNewA && isNewB) return 1;
-          return 0;
-        });
-        break;
-    }
-
-    setState(() {
-      filteredProducts = results;
-    });
   }
 
   @override
@@ -286,7 +266,6 @@ class _ProductListingScreenState extends State<ProductListingScreen>
               Tab(
                   icon: const Icon(Icons.account_circle),
                   text: AppStrings.profile),
-              // Tab(icon: const Icon(Icons.download), text: AppStrings.downloads),
             ],
             indicator: const BoxDecoration(),
             labelColor: AppTheme.secondaryColor,
@@ -300,7 +279,6 @@ class _ProductListingScreenState extends State<ProductListingScreen>
           children: [
             _buildHomeTab(),
             _buildProfileTab(),
-            // _buildDownloadTab(),
           ],
         ),
       ),
@@ -348,16 +326,13 @@ class _ProductListingScreenState extends State<ProductListingScreen>
               color: isDark ? Colors.white70 : Colors.black54,
             ),
           ),
-          if (_hasMoreData && !_isLoadingMore)
-            TextButton.icon(
-              onPressed: _loadMoreProducts,
-              icon: Icon(Icons.refresh, size: 16),
-              label: Text('Load More'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.secondaryColor,
-                textStyle: TextStyle(fontSize: 12.sp),
-              ),
+          Text(
+            'Page $_currentPage of $_totalPages',
+            style: TextStyle(
+              fontSize: 12.sp,
+              color: isDark ? Colors.white60 : Colors.black45,
             ),
+          ),
         ],
       ),
     );
@@ -425,7 +400,7 @@ class _ProductListingScreenState extends State<ProductListingScreen>
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search for lipstick, brands...',
+                  hintText: 'Search for skincare, toner, serum...',
                   hintStyle: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 14.sp,
@@ -439,12 +414,10 @@ class _ProductListingScreenState extends State<ProductListingScreen>
                   _fetchProducts(loadMore: false);
                 },
                 onChanged: (value) {
-                  setState(() {}); // Update UI to show/hide clear button
+                  setState(() {});
 
-                  // Cancel previous timer
                   if (_debounce?.isActive ?? false) _debounce!.cancel();
 
-                  // Start new timer for debounced search
                   _debounce =
                       Timer(Duration(milliseconds: _debounceDuration), () {
                     if (value.length >= 2 || value.isEmpty) {
@@ -481,58 +454,6 @@ class _ProductListingScreenState extends State<ProductListingScreen>
     );
   }
 
-  int _getAppliedFiltersCount() {
-    int count = 0;
-    if (_selectedBrands.isNotEmpty) count++;
-    if (_minRating > 0) count++;
-    if (_priceRange != null) count++;
-    if (_selectedBenefits.isNotEmpty) count++;
-    if (_selectedSkinTypes.isNotEmpty) count++;
-    if (_selectedIngredients.isNotEmpty) count++;
-    if (_onSale) count++;
-    if (_newOnly) count++;
-    if (_cleanAtSephora) count++;
-    if (_selectedColorFamily.isNotEmpty) count++;
-    return count;
-  }
-
-  Future<void> _openFiltersScreen() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FiltersScreen(
-          selectedBrands: _selectedBrands,
-          minRating: _minRating,
-          priceRange: _priceRange,
-          selectedBenefits: _selectedBenefits,
-          selectedSkinTypes: _selectedSkinTypes,
-          selectedIngredients: _selectedIngredients,
-          onSale: _onSale,
-          newOnly: _newOnly,
-          cleanAtSephora: _cleanAtSephora,
-          selectedColorFamily: _selectedColorFamily,
-          availableBrands: brands.toList(),
-        ),
-      ),
-    );
-
-    if (result != null && result is Map<String, dynamic>) {
-      setState(() {
-        _selectedBrands = result['brands'] ?? {};
-        _minRating = result['rating'] ?? 0.0;
-        _priceRange = result['priceRange'];
-        _selectedBenefits = result['benefits'] ?? {};
-        _selectedSkinTypes = result['skinTypes'] ?? {};
-        _selectedIngredients = result['ingredients'] ?? {};
-        _onSale = result['onSale'] ?? false;
-        _newOnly = result['newOnly'] ?? false;
-        _cleanAtSephora = result['cleanAtSephora'] ?? false;
-        _selectedColorFamily = result['colorFamily'] ?? {};
-      });
-      _fetchProducts(loadMore: false);
-    }
-  }
-
   Widget _buildFilterBar() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final filterCount = _getAppliedFiltersCount();
@@ -557,10 +478,13 @@ class _ProductListingScreenState extends State<ProductListingScreen>
                   SizedBox(width: 8),
                   _buildSortDropdown(),
                   SizedBox(width: 8),
-                  if (_selectedBrands.isNotEmpty)
-                    _buildActiveFilterChip('Brands: ${_selectedBrands.length}',
-                        () {
-                      setState(() => _selectedBrands.clear());
+                  if (_selectedBrandIds.isNotEmpty)
+                    _buildActiveFilterChip(
+                        'Brands: ${_selectedBrandIds.length}', () {
+                      setState(() {
+                        _selectedBrandIds.clear();
+                        _selectedBrandNames.clear();
+                      });
                       _fetchProducts(loadMore: false);
                     }),
                   if (_minRating > 0)
@@ -568,9 +492,17 @@ class _ProductListingScreenState extends State<ProductListingScreen>
                       setState(() => _minRating = 0);
                       _fetchProducts(loadMore: false);
                     }),
-                  if (_priceRange != null)
+                  if (_minPrice != null || _maxPrice != null)
                     _buildActiveFilterChip('Price', () {
-                      setState(() => _priceRange = null);
+                      setState(() {
+                        _minPrice = null;
+                        _maxPrice = null;
+                      });
+                      _fetchProducts(loadMore: false);
+                    }),
+                  if (_inStock)
+                    _buildActiveFilterChip('In Stock', () {
+                      setState(() => _inStock = false);
                       _fetchProducts(loadMore: false);
                     }),
                 ],
@@ -657,7 +589,16 @@ class _ProductListingScreenState extends State<ProductListingScreen>
     return PopupMenuButton<String>(
       initialValue: _sortBy,
       onSelected: (value) {
-        setState(() => _sortBy = value);
+        setState(() {
+          _sortBy = value;
+          if (value == 'price') {
+            _sortOrder = _sortOrder == 'asc' ? 'desc' : 'asc';
+          } else if (value == 'name') {
+            _sortOrder = _sortOrder == 'asc' ? 'desc' : 'asc';
+          } else {
+            _sortOrder = 'desc';
+          }
+        });
         _fetchProducts(loadMore: false);
       },
       child: Container(
@@ -683,27 +624,30 @@ class _ProductListingScreenState extends State<ProductListingScreen>
       ),
       itemBuilder: (context) => [
         PopupMenuItem(value: 'relevance', child: Text('Relevance')),
-        PopupMenuItem(value: 'price_low', child: Text('Price: Low to High')),
-        PopupMenuItem(value: 'price_high', child: Text('Price: High to Low')),
+        PopupMenuItem(
+            value: 'price',
+            child: Text(
+                'Price: ${_sortOrder == 'asc' ? 'Low to High' : 'High to Low'}')),
         PopupMenuItem(value: 'rating', child: Text('Highest Rated')),
-        PopupMenuItem(value: 'reviews', child: Text('Most Reviewed')),
-        PopupMenuItem(value: 'newest', child: Text('New Arrivals')),
+        PopupMenuItem(value: 'popular', child: Text('Most Popular')),
+        PopupMenuItem(value: 'newest', child: Text('Newest First')),
+        PopupMenuItem(value: 'name', child: Text('Name: A-Z')),
       ],
     );
   }
 
   String _getSortLabel(String sortBy) {
     switch (sortBy) {
-      case 'price_low':
-        return 'Price ↑';
-      case 'price_high':
-        return 'Price ↓';
+      case 'price':
+        return _sortOrder == 'asc' ? 'Price ↑' : 'Price ↓';
       case 'rating':
         return 'Rating';
-      case 'reviews':
-        return 'Reviews';
+      case 'popular':
+        return 'Popular';
       case 'newest':
         return 'New';
+      case 'name':
+        return 'Name';
       default:
         return 'Relevance';
     }
@@ -715,9 +659,9 @@ class _ProductListingScreenState extends State<ProductListingScreen>
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        mainAxisSpacing: 16,
+        mainAxisSpacing: 20,
         crossAxisSpacing: 16,
-        childAspectRatio: 0.65,
+        childAspectRatio: 0.53,
       ),
       itemCount: filteredProducts.length + (_hasMoreData ? 1 : 0),
       itemBuilder: (context, index) {
@@ -752,10 +696,36 @@ class _ProductListingScreenState extends State<ProductListingScreen>
           ),
           SizedBox(height: 8),
           Text(
-            'Try adjusting your filters',
+            'Try adjusting your filters or search query',
             style: TextStyle(
               fontSize: 14.sp,
               color: Colors.grey[500],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              setState(() {
+                _searchController.clear();
+                _selectedBrandIds.clear();
+                _selectedBrandNames.clear();
+                _selectedSkinTypes.clear();
+                _selectedSkinConcerns.clear();
+                _selectedProductTypes.clear();
+                _minRating = 0;
+                _minPrice = null;
+                _maxPrice = null;
+                _inStock = false;
+                _sortBy = 'relevance';
+              });
+              _fetchProducts(loadMore: false);
+            },
+            icon: Icon(Icons.refresh),
+            label: Text('Clear Filters'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.secondaryColor,
+              foregroundColor: Colors.white,
             ),
           ),
         ],

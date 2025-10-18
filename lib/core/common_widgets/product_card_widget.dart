@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:product_sale_app/core/themes/app_theme.dart';
 import 'package:shimmer/shimmer.dart';
 import '../model/product_model.dart';
 import '../routes/app_routes.dart';
 
 class ProductCard extends StatefulWidget {
-  final Products product;
+  final Product product;
 
   const ProductCard({
     Key? key,
@@ -20,52 +21,56 @@ class ProductCard extends StatefulWidget {
 class _ProductCardState extends State<ProductCard> {
   bool _isFavorite = false;
 
-  // Helper to parse price from string format
-  double parsePrice(String? priceString) {
-    if (priceString == null || priceString.isEmpty) return 0.0;
-    String cleaned = priceString.replaceAll(RegExp(r'[^\d.-]'), '');
-    if (cleaned.contains('-')) {
-      cleaned = cleaned.split('-')[0].trim();
+  static const String _imageBaseUrl =
+      'https://beautybarn.blr1.cdn.digitaloceanspaces.com/';
+
+  String getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) return '';
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
     }
-    return double.tryParse(cleaned) ?? 0.0;
+    return '$_imageBaseUrl$imagePath';
   }
 
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
 
-    // Get image - use heroImage or first available image
-    final String imagePath =
-        product.heroImage ?? product.image250 ?? product.image135 ?? '';
+    String imagePath = '';
+    if (product.thumbnail != null && product.thumbnail!.isNotEmpty) {
+      imagePath = getImageUrl(product.thumbnail);
+    } else if (product.productImages != null &&
+        product.productImages!.isNotEmpty) {
+      imagePath = getImageUrl(product.productImages!.first.image);
+    }
 
-    final String productName =
-        product.displayName ?? product.productName ?? 'No title';
-    final String brandName = product.brandName ?? '';
+    final String productName = product.title ?? 'No title';
+    final String brandName = product.brand?.title ?? '';
 
-    // Get rating from string
-    final double rating = double.tryParse(product.rating ?? '0') ?? 0.0;
-    final int reviewCount = int.tryParse(product.reviews ?? '0') ?? 0;
+    final double rating = product.averageRating ?? 0.0;
+    final int reviewCount = product.reviewsCount ?? 0;
 
-    // Get price from currentSku
-    final double price = parsePrice(product.currentSku?.listPrice);
-    final double salePrice = parsePrice(product.currentSku?.salePrice);
-    final double currentPrice = salePrice > 0 ? salePrice : price;
+    final int price = product.variants?.first.originalPrice ?? 0;
+    final int currentPrice = product.variants?.first.currentPrice ?? 0;
+    final int specialPrice = product.variants?.first.specialPrice ?? 0;
 
-    // Calculate discount percentage
     final double discount = price > 0 && currentPrice < price
         ? ((price - currentPrice) / price * 100)
         : 0.0;
-    final String saveAmount = discount > 0
-        ? 'Save \$${(price - currentPrice).toStringAsFixed(2)}'
-        : '';
 
-    // Check if product is new
-    final bool isNew = product.currentSku?.isNew ?? false;
-    final bool isSale = product.currentSku?.salePrice != null &&
-        product.currentSku!.salePrice!.isNotEmpty;
-    final bool isExclusive = product.currentSku?.isSephoraExclusive ?? false;
+    bool isNew = false;
+    if (product.createdAt != null) {
+      try {
+        final createdDate = DateTime.parse(product.createdAt!);
+        final daysSinceCreation = DateTime.now().difference(createdDate).inDays;
+        isNew = daysSinceCreation < 30;
+      } catch (e) {
+        isNew = false;
+      }
+    }
 
-    // Determine theme
+    final bool isSale = specialPrice > 0 && specialPrice < price;
+
     final bool isDarkTheme = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
@@ -73,7 +78,7 @@ class _ProductCardState extends State<ProductCard> {
         Navigator.pushNamed(
           context,
           AppRoutes.productDetail,
-          arguments: product,
+          arguments: product.id,
         );
       },
       child: Container(
@@ -82,9 +87,9 @@ class _ProductCardState extends State<ProductCard> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).shadowColor.withOpacity(0.1),
-              blurRadius: 8,
-              spreadRadius: 2,
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
             )
           ],
         ),
@@ -92,181 +97,198 @@ class _ProductCardState extends State<ProductCard> {
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
-                // Product Image with fixed height
                 ClipRRect(
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(12)),
                   child: imagePath.isNotEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.all(8.0),
+                      ? Container(
+                          color: Colors.white,
+                          padding: const EdgeInsets.all(10.0),
+                          height: 150.h,
                           child: CachedNetworkImage(
                             imageUrl: imagePath,
-                            height: 120.h,
                             width: double.infinity,
                             fit: BoxFit.contain,
                             placeholder: (context, url) => Shimmer.fromColors(
-                              baseColor: isDarkTheme
-                                  ? Colors.grey.shade800
-                                  : Colors.grey.shade300,
-                              highlightColor: isDarkTheme
-                                  ? Colors.grey.shade700
-                                  : Colors.grey.shade100,
+                              baseColor: Colors.grey.shade200,
+                              highlightColor: Colors.grey.shade100,
                               child: Container(
-                                height: 120.h,
                                 width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
+                                color: Colors.white,
                               ),
                             ),
                             errorWidget: (context, url, error) => Container(
-                              color: isDarkTheme
-                                  ? Colors.grey.shade800
-                                  : Colors.grey.shade200,
-                              height: 120.h,
+                              color: Colors.grey.shade100,
                               width: double.infinity,
                               child: const Icon(
                                 Icons.broken_image,
                                 color: Colors.grey,
+                                size: 40,
                               ),
                             ),
                           ),
                         )
                       : Container(
-                          color: isDarkTheme
-                              ? Colors.grey.shade800
-                              : Colors.grey.shade200,
-                          height: 120.h,
+                          color: Colors.grey.shade100,
+                          height: 180.h,
                           width: double.infinity,
                           child: const Icon(Icons.image,
                               color: Colors.grey, size: 40),
                         ),
                 ),
-
-                // Product Info - Flexible content area
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
+                    padding: const EdgeInsets.fromLTRB(10, 5, 10, 10),
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Brand Name
-                        if (brandName.isNotEmpty) ...[
+                        if (brandName.isNotEmpty)
                           Text(
                             brandName.toUpperCase(),
                             style: TextStyle(
-                              fontSize: 9.sp,
+                              fontSize: 10.sp,
                               fontWeight: FontWeight.w600,
-                              color: isDarkTheme
-                                  ? Colors.grey.shade400
-                                  : Colors.grey.shade600,
+                              color: Colors.grey.shade600,
                               letterSpacing: 0.5,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          SizedBox(height: 3),
-                        ],
-
-                        // Product Name - Limited to 2 lines
-                        Flexible(
-                          child: Text(
-                            productName,
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w500,
-                              color:
-                                  Theme.of(context).textTheme.bodyLarge?.color,
-                              height: 1.2,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        SizedBox(height: 7),
+                        Text(
+                          productName,
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w500,
+                            color: isDarkTheme ? Colors.white : Colors.black87,
+                            height: 1.2,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-
-                        SizedBox(height: 4),
-
-                        // Rating - Compact
+                        SizedBox(height: 7),
                         if (rating > 0)
                           Row(
                             children: [
-                              Icon(Icons.star, color: Colors.amber, size: 12),
-                              SizedBox(width: 2),
+                              ...List.generate(
+                                5,
+                                (index) => Icon(
+                                  index < rating.floor()
+                                      ? Icons.star
+                                      : (index < rating
+                                          ? Icons.star_half
+                                          : Icons.star_border),
+                                  color: Colors.amber.shade700,
+                                  size: 13,
+                                ),
+                              ),
+                              SizedBox(width: 4),
                               Text(
                                 rating.toStringAsFixed(1),
                                 style: TextStyle(
-                                  fontSize: 10.sp,
+                                  fontSize: 11.sp,
                                   fontWeight: FontWeight.w600,
-                                  color: Theme.of(context)
-                                      .textTheme
-                                      .bodyLarge
-                                      ?.color,
+                                  color: isDarkTheme
+                                      ? Colors.white70
+                                      : Colors.black87,
                                 ),
                               ),
-                              SizedBox(width: 3),
+                              SizedBox(width: 2),
                               Text(
                                 '($reviewCount)',
                                 style: TextStyle(
-                                  fontSize: 9.sp,
-                                  color: isDarkTheme
-                                      ? Colors.grey.shade400
-                                      : Colors.grey.shade600,
+                                  fontSize: 10.sp,
+                                  color: Colors.grey.shade600,
                                 ),
                               ),
                             ],
                           ),
-
-                        // Spacer to push price to bottom
-                        Spacer(),
-
-                        // Price Section
-                        buildPriceWidget(
-                          originalPrice: price,
-                          discountedPrice: currentPrice,
-                          discount: discount,
-                          saveAmount: saveAmount,
-                          showStrikeOut: discount > 0,
-                          context: context,
-                        ),
-
-                        // Color variants indicator - Compact
-                        if (product.moreColors != null &&
-                            product.moreColors! > 0) ...[
-                          SizedBox(height: 4),
-                          Row(
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Icon(
-                                Icons.palette,
-                                size: 10,
-                                color: isDarkTheme
-                                    ? Colors.grey.shade400
-                                    : Colors.grey.shade600,
-                              ),
-                              SizedBox(width: 3),
                               Text(
-                                '${product.moreColors} colors',
+                                '₹${currentPrice.toString()}',
                                 style: TextStyle(
-                                  fontSize: 9.sp,
+                                  fontSize: 15.sp,
+                                  fontWeight: FontWeight.bold,
                                   color: isDarkTheme
-                                      ? Colors.grey.shade400
-                                      : Colors.grey.shade600,
+                                      ? Colors.white
+                                      : Colors.black87,
                                 ),
                               ),
+                              SizedBox(width: 6),
+                              if (discount > 0)
+                                Text(
+                                  '₹${price.toString()}',
+                                  style: TextStyle(
+                                    fontSize: 12.sp,
+                                    color: Colors.grey.shade600,
+                                    decoration: TextDecoration.lineThrough,
+                                    decorationColor: Colors.grey.shade600,
+                                  ),
+                                ),
+                              if (discount > 0) ...[
+                                SizedBox(width: 6),
+                                Text(
+                                  '${discount.toInt()}% OFF',
+                                  style: TextStyle(
+                                    fontSize: 11.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
-                        ],
+                        ),
+                        SizedBox(height: 6),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 34,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('$productName added to bag'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                color: isDarkTheme
+                                    ? Colors.white70
+                                    : AppTheme.cartButtonColour,
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: Text(
+                              'Add to Bag',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
+                                color: isDarkTheme
+                                    ? Colors.white70
+                                    : AppTheme.cartButtonColour,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
               ],
             ),
-
-            // Top Badges
             Positioned(
               top: 8,
               left: 8,
@@ -274,44 +296,60 @@ class _ProductCardState extends State<ProductCard> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Left badges (New, Sale, Exclusive)
-                  Flexible(
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        if (isNew)
-                          _buildBadge('NEW', Colors.blue, isDarkTheme),
-                        if (isSale && discount > 0)
-                          _buildBadge('${discount.toInt()}% OFF', Colors.red,
-                              isDarkTheme),
-                        if (isExclusive)
-                          _buildBadge('EXCLUSIVE', Colors.purple, isDarkTheme),
-                      ],
-                    ),
+                  Row(
+                    children: [
+                      if (discount > 0)
+                        Container(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.yellow.shade600,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'SAVE ${discount.toInt()}% OFF',
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      if (isNew && discount == 0)
+                        Container(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade600,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'NEW',
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-
-                  // Favorite button
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      shape: BoxShape.circle,
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(
+                      _isFavorite ? Icons.favorite : Icons.favorite_border,
+                      size: 18,
+                      color: _isFavorite ? Colors.red : Colors.grey.shade700,
                     ),
-                    child: IconButton(
-                      icon: Icon(
-                        _isFavorite ? Icons.favorite : Icons.favorite_border,
-                        size: 16,
-                        color: _isFavorite ? Colors.red : Colors.grey.shade700,
-                      ),
-                      padding: EdgeInsets.all(4),
-                      constraints:
-                          BoxConstraints(minWidth: 32, minHeight: 32),
-                      onPressed: () {
-                        setState(() {
-                          _isFavorite = !_isFavorite;
-                        });
-                      },
-                    ),
+                    padding: EdgeInsets.all(6),
+                    constraints: BoxConstraints(minWidth: 36, minHeight: 36),
+                    onPressed: () {
+                      setState(() {
+                        _isFavorite = !_isFavorite;
+                      });
+                    },
                   ),
                 ],
               ),
@@ -321,90 +359,4 @@ class _ProductCardState extends State<ProductCard> {
       ),
     );
   }
-
-  // Helper widget to build badges
-  Widget _buildBadge(String text, Color color, bool isDarkTheme) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 8.sp,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-          letterSpacing: 0.3,
-        ),
-      ),
-    );
-  }
-}
-
-Widget buildPriceWidget({
-  required double originalPrice,
-  required double discountedPrice,
-  required double discount,
-  required String saveAmount,
-  required bool showStrikeOut,
-  required BuildContext context,
-}) {
-  final bool isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // Current Price
-          Text(
-            '\$${discountedPrice.toStringAsFixed(2)}',
-            style: TextStyle(
-              fontSize: 14.sp,
-              fontWeight: FontWeight.bold,
-              color: showStrikeOut
-                  ? Colors.green
-                  : (isDarkTheme ? Colors.white : Colors.black87),
-            ),
-          ),
-          SizedBox(width: 4),
-
-          // Original Price (struck through)
-          if (showStrikeOut)
-            Flexible(
-              child: Text(
-                '\$${originalPrice.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: 11.sp,
-                  color: isDarkTheme
-                      ? Colors.grey.shade500
-                      : Colors.grey.shade600,
-                  decoration: TextDecoration.lineThrough,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-        ],
-      ),
-
-      // Save amount
-      if (showStrikeOut && saveAmount.isNotEmpty) ...[
-        SizedBox(height: 2),
-        Text(
-          saveAmount,
-          style: TextStyle(
-            fontSize: 9.sp,
-            color: Colors.green.shade700,
-            fontWeight: FontWeight.w600,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    ],
-  );
 }

@@ -1,130 +1,108 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:product_sale_app/core/model/product_detail_model.dart';
 import '../model/product_model.dart';
 
 class ProductService {
-  // Sephora Base URL
-  static const String _baseUrl = 'https://www.sephora.com/api/v2/catalog/search/';
-  
+  // Base URLs
+  static const String _baseUrl = 'https://www.stryce.com/api/v1/store/product-search';
+  static const String _reviewUrl = 'https://www.stryce.com/api/v1/store/product-review';
+
   /// Fetch products with comprehensive search and filter options
-  static Future<Product> fetchProducts({
+  static Future<ProductResponse> fetchProducts({
     String? query,
-    int currentPage = 1,
-    int pageSize = 60,
-    String? brand,
-    String? priceRange,
-    String? rating,
+    int page = 1,
+    int limit = 20,
+    bool inStock = false,
+    String? brandId,
+    String? categoryId,
+    String? skinType,
+    String? skinConcern,
+    String? productType,
+    int? minPrice,
+    int? maxPrice,
+    double? minRating,
     String? sortBy,
-    List<String>? benefits,
-    List<String>? skinType,
-    List<String>? ingredientPreferences,
-    bool? onSale,
-    bool? newOnly,
-    bool? cleanAtSephora,
-    bool? pickupEligible,
-    bool? sameDayEligible,
+    String? sortOrder,
+    String? productId,
   }) async {
     try {
       // Build query parameters
       final Map<String, String> queryParams = {
-        'type': 'keyword',
-        'q': query ?? 'lipstick',
-        'includeEDD': 'true',
-        'content': 'true',
-        'includeRegionsMap': 'true',
-        'page': pageSize.toString(),
-        'currentPage': currentPage.toString(),
-        'loc': 'en-US',
-        'ch': 'rwd',
-        'countryCode': 'US',
-        'callAdSvc': 'true',
-        'adSvcSlot': '2503111',
-        'targetSearchEngine': 'nlp',
+        'page': page.toString(),
+        'limit': limit.toString(),
+        'inStock': inStock.toString(),
       };
-      
+
+      // Add search query if provided
+      if (query != null && query.isNotEmpty) {
+        queryParams['q'] = query;
+      }
+
+      // Add product ID if provided
+      if (productId != null && productId.isNotEmpty) {
+        queryParams['id'] = productId;
+      }
+
       // Add filters if provided
-      final List<String> filters = [];
-      
-      if (brand != null && brand.isNotEmpty) {
-        filters.add('filters[Brand]=$brand');
+      if (brandId != null && brandId.isNotEmpty) {
+        queryParams['brandId'] = brandId;
       }
-      
-      if (priceRange != null && priceRange.isNotEmpty) {
-        filters.add(priceRange);
+
+      if (categoryId != null && categoryId.isNotEmpty) {
+        queryParams['categoryId'] = categoryId;
       }
-      
-      if (rating != null && rating.isNotEmpty) {
-        filters.add('filters[Rating]=$rating');
-      }
-      
-      if (onSale == true) {
-        filters.add('filters[on_sale]=true');
-      }
-      
-      if (newOnly == true) {
-        filters.add('filters[isNew]=true');
-      }
-      
-      if (cleanAtSephora == true) {
-        filters.add('filters[ingredientPreferences]=cleanAtSephora');
-      }
-      
-      if (pickupEligible == true) {
-        filters.add('filters[Pickup]=');
-      }
-      
-      if (sameDayEligible == true) {
-        filters.add('filters[SameDay]=');
-      }
-      
-      if (benefits != null && benefits.isNotEmpty) {
-        for (var benefit in benefits) {
-          filters.add('filters[benefits]=$benefit');
-        }
-      }
-      
+
       if (skinType != null && skinType.isNotEmpty) {
-        for (var type in skinType) {
-          filters.add('filters[skinType]=$type');
-        }
+        queryParams['skinType'] = skinType;
       }
-      
-      if (ingredientPreferences != null && ingredientPreferences.isNotEmpty) {
-        for (var pref in ingredientPreferences) {
-          filters.add('filters[ingredientPreferences]=$pref');
-        }
+
+      if (skinConcern != null && skinConcern.isNotEmpty) {
+        queryParams['skinConcern'] = skinConcern;
       }
-      
-      // Add sorting
+
+      if (productType != null && productType.isNotEmpty) {
+        queryParams['productType'] = productType;
+      }
+
+      if (minPrice != null) {
+        queryParams['minPrice'] = minPrice.toString();
+      }
+
+      if (maxPrice != null) {
+        queryParams['maxPrice'] = maxPrice.toString();
+      }
+
+      if (minRating != null) {
+        queryParams['minRating'] = minRating.toString();
+      }
+
       if (sortBy != null && sortBy.isNotEmpty) {
-        queryParams['sort'] = sortBy;
+        queryParams['sortBy'] = sortBy;
       }
-      
+
+      if (sortOrder != null && sortOrder.isNotEmpty) {
+        queryParams['sortOrder'] = sortOrder;
+      }
+
       // Build URI with query parameters
-      var uri = Uri.parse(_baseUrl).replace(queryParameters: queryParams);
-      
-      // Add filters to URI if any
-      if (filters.isNotEmpty) {
-        String uriString = uri.toString();
-        uriString += '&${filters.join('&')}';
-        uri = Uri.parse(uriString);
-      }
-      
+      final uri = Uri.parse(_baseUrl).replace(queryParameters: queryParams);
+
       print('🌐 Fetching from: $uri');
-      
+
       // Make the API request
       final response = await http.get(
         uri,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
       );
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        return Product.fromJson(jsonData);
+        print('✅ Success: Loaded ${jsonData['meta']?['items'] ?? 0} products');
+        return ProductResponse.fromJson(jsonData);
       } else {
         print('❌ Error Response: ${response.statusCode}');
         print('Response Body: ${response.body}');
@@ -135,236 +113,365 @@ class ProductService {
       throw Exception('Error fetching products: $e');
     }
   }
-  
-  /// Fetch all products (default lipstick)
-  static Future<Product> fetchAllProducts({
-    int currentPage = 1,
-    int pageSize = 60,
+
+  /// Fetch product reviews
+  static Future<ProductDetailResponseData> fetchProductReviews({
+    required String productId,
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String? searchFields,
+    String? sort,
+  }) async {
+    try {
+      final Map<String, String> queryParams = {
+        'page': page.toString(),
+        'limit': limit.toString(),
+        'search': search ?? '',
+        'searchFields': searchFields ?? '',
+        'sort': sort ?? '',
+      };
+
+      final url = '$_reviewUrl/product/$productId';
+      final uri = Uri.parse(url).replace(queryParameters: queryParams);
+
+      print('🌐 Fetching reviews from: $uri');
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        print('✅ Success: Loaded ${jsonData['meta']?['total'] ?? 0} reviews');
+        return ProductDetailResponseData.fromJson(jsonData);
+      } else {
+        print('❌ Error Response: ${response.statusCode}');
+        throw Exception('Failed to load reviews: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error fetching reviews: $e');
+      throw Exception('Error fetching reviews: $e');
+    }
+  }
+
+  /// Fetch all products (default search)
+  static Future<ProductResponse> fetchAllProducts({
+    int page = 1,
+    int limit = 20,
+    bool inStock = false,
   }) async {
     return fetchProducts(
-      query: 'lipstick',
-      currentPage: currentPage,
-      pageSize: pageSize,
+      page: page,
+      limit: limit,
+      inStock: inStock,
     );
   }
-  
+
+  /// Fetch product detail by ID
+  static Future<ProductResponse> fetchProductDetail({
+    required String productId,
+  }) async {
+    return fetchProducts(
+      productId: productId,
+      limit: 1,
+    );
+  }
+
   /// Search products by query
-  static Future<Product> searchProducts(
+  static Future<ProductResponse> searchProducts(
     String searchQuery, {
-    int currentPage = 1,
-    int pageSize = 60,
+    int page = 1,
+    int limit = 20,
+    bool inStock = false,
     String? sortBy,
+    String? sortOrder,
   }) async {
     return fetchProducts(
       query: searchQuery,
-      currentPage: currentPage,
-      pageSize: pageSize,
+      page: page,
+      limit: limit,
+      inStock: inStock,
       sortBy: sortBy,
+      sortOrder: sortOrder,
     );
   }
-  
-  /// Fetch products with brand filter
-  static Future<Product> fetchProductsByBrand(
-    String brand, {
+
+  /// Fetch products by brand
+  static Future<ProductResponse> fetchProductsByBrand(
+    String brandId, {
     String? query,
-    int currentPage = 1,
-    int pageSize = 60,
+    int page = 1,
+    int limit = 20,
+    bool inStock = false,
   }) async {
     return fetchProducts(
-      query: query ?? 'lipstick',
-      currentPage: currentPage,
-      pageSize: pageSize,
-      brand: brand,
+      query: query,
+      page: page,
+      limit: limit,
+      inStock: inStock,
+      brandId: brandId,
     );
   }
-  
+
+  /// Fetch products by category
+  static Future<ProductResponse> fetchProductsByCategory(
+    String categoryId, {
+    String? query,
+    int page = 1,
+    int limit = 20,
+    bool inStock = false,
+  }) async {
+    return fetchProducts(
+      query: query,
+      page: page,
+      limit: limit,
+      inStock: inStock,
+      categoryId: categoryId,
+    );
+  }
+
   /// Fetch products by price range
-  static Future<Product> fetchProductsByPriceRange(
-    String priceRange, {
+  static Future<ProductResponse> fetchProductsByPriceRange({
     String? query,
-    int currentPage = 1,
-    int pageSize = 60,
+    int? minPrice,
+    int? maxPrice,
+    int page = 1,
+    int limit = 20,
+    bool inStock = false,
   }) async {
-    // Price range format: "pl=min&ph=max"
-    // Examples:
-    // Under $25: "pl=min&ph=25"
-    // $25 to $50: "pl=25&ph=50"
-    // $50 to $100: "pl=50&ph=100"
-    // $100 and above: "pl=100&ph=max"
-    
     return fetchProducts(
-      query: query ?? 'lipstick',
-      currentPage: currentPage,
-      pageSize: pageSize,
-      priceRange: priceRange,
+      query: query,
+      page: page,
+      limit: limit,
+      inStock: inStock,
+      minPrice: minPrice,
+      maxPrice: maxPrice,
     );
   }
-  
+
   /// Fetch products by rating
-  static Future<Product> fetchProductsByRating(
+  static Future<ProductResponse> fetchProductsByRating(
     double minRating, {
     String? query,
-    int currentPage = 1,
-    int pageSize = 60,
+    int page = 1,
+    int limit = 20,
+    bool inStock = false,
   }) async {
-    // Rating format: "4"-"inf", "3"-"inf", "2"-"inf", "1"-"inf"
-    final ratingFilter = '"${minRating.toInt()}"-"inf"';
-    
     return fetchProducts(
-      query: query ?? 'lipstick',
-      currentPage: currentPage,
-      pageSize: pageSize,
-      rating: ratingFilter,
+      query: query,
+      page: page,
+      limit: limit,
+      inStock: inStock,
+      minRating: minRating,
     );
   }
-  
-  /// Fetch new products only
-  static Future<Product> fetchNewProducts({
+
+  /// Fetch products by skin type
+  static Future<ProductResponse> fetchProductsBySkinType(
+    String skinType, {
     String? query,
-    int currentPage = 1,
-    int pageSize = 60,
+    int page = 1,
+    int limit = 20,
+    bool inStock = false,
   }) async {
     return fetchProducts(
-      query: query ?? 'lipstick',
-      currentPage: currentPage,
-      pageSize: pageSize,
-      newOnly: true,
+      query: query,
+      page: page,
+      limit: limit,
+      inStock: inStock,
+      skinType: skinType,
     );
   }
-  
-  /// Fetch products on sale
-  static Future<Product> fetchSaleProducts({
+
+  /// Fetch products by skin concern
+  static Future<ProductResponse> fetchProductsBySkinConcern(
+    String skinConcern, {
     String? query,
-    int currentPage = 1,
-    int pageSize = 60,
+    int page = 1,
+    int limit = 20,
+    bool inStock = false,
   }) async {
     return fetchProducts(
-      query: query ?? 'lipstick',
-      currentPage: currentPage,
-      pageSize: pageSize,
-      onSale: true,
+      query: query,
+      page: page,
+      limit: limit,
+      inStock: inStock,
+      skinConcern: skinConcern,
     );
   }
-  
-  /// Fetch Clean at Sephora products
-  static Future<Product> fetchCleanProducts({
+
+  /// Fetch products by product type
+  static Future<ProductResponse> fetchProductsByType(
+    String productType, {
     String? query,
-    int currentPage = 1,
-    int pageSize = 60,
+    int page = 1,
+    int limit = 20,
+    bool inStock = false,
   }) async {
     return fetchProducts(
-      query: query ?? 'lipstick',
-      currentPage: currentPage,
-      pageSize: pageSize,
-      cleanAtSephora: true,
+      query: query,
+      page: page,
+      limit: limit,
+      inStock: inStock,
+      productType: productType,
     );
   }
-  
+
+  /// Fetch in-stock products only
+  static Future<ProductResponse> fetchInStockProducts({
+    String? query,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    return fetchProducts(
+      query: query,
+      page: page,
+      limit: limit,
+      inStock: true,
+    );
+  }
+
   /// Fetch products with multiple filters
-  static Future<Product> fetchFilteredProducts({
+  static Future<ProductResponse> fetchFilteredProducts({
     String? query,
-    int currentPage = 1,
-    int pageSize = 60,
-    List<String>? brands,
-    String? priceMin,
-    String? priceMax,
+    int page = 1,
+    int limit = 20,
+    bool inStock = false,
+    String? brandId,
+    String? categoryId,
+    String? skinType,
+    String? skinConcern,
+    String? productType,
+    int? minPrice,
+    int? maxPrice,
     double? minRating,
     String? sortBy,
-    List<String>? benefits,
-    List<String>? skinType,
-    List<String>? ingredientPreferences,
-    bool? onSale,
-    bool? newOnly,
-    bool? cleanAtSephora,
-    bool? pickupEligible,
-    bool? sameDayEligible,
+    String? sortOrder,
   }) async {
-    // Build price range if provided
-    String? priceRange;
-    if (priceMin != null || priceMax != null) {
-      priceRange = 'pl=${priceMin ?? "min"}&ph=${priceMax ?? "max"}';
-    }
-    
-    // Build rating filter if provided
-    String? ratingFilter;
-    if (minRating != null) {
-      ratingFilter = '"${minRating.toInt()}"-"inf"';
-    }
-    
-    // For multiple brands, we need to call the API multiple times
-    // or filter the results client-side
-    // For now, using the first brand if multiple are provided
-    final brand = brands != null && brands.isNotEmpty ? brands.first : null;
-    
     return fetchProducts(
-      query: query ?? 'lipstick',
-      currentPage: currentPage,
-      pageSize: pageSize,
-      brand: brand,
-      priceRange: priceRange,
-      rating: ratingFilter,
-      sortBy: sortBy,
-      benefits: benefits,
+      query: query,
+      page: page,
+      limit: limit,
+      inStock: inStock,
+      brandId: brandId,
+      categoryId: categoryId,
       skinType: skinType,
-      ingredientPreferences: ingredientPreferences,
-      onSale: onSale,
-      newOnly: newOnly,
-      cleanAtSephora: cleanAtSephora,
-      pickupEligible: pickupEligible,
-      sameDayEligible: sameDayEligible,
+      skinConcern: skinConcern,
+      productType: productType,
+      minPrice: minPrice,
+      maxPrice: maxPrice,
+      minRating: minRating,
+      sortBy: sortBy,
+      sortOrder: sortOrder,
     );
   }
-  
-  
+
+  /// Fetch available brands
+  static List<Brand>? getBrands(ProductResponse response) {
+    return response.data?.brands;
+  }
+
+  /// Fetch available attributes (filters)
+  static List<AttributeFilter>? getAttributes(ProductResponse response) {
+    return response.data?.attributes;
+  }
+
+  /// Get total products count
+  static int getTotalProducts(ProductResponse response) {
+    return response.meta?.total ?? 0;
+  }
+
+  /// Get current page
+  static int getCurrentPage(ProductResponse response) {
+    return response.meta?.currentPage ?? 1;
+  }
+
+  /// Get total pages
+  static int getTotalPages(ProductResponse response) {
+    return response.meta?.lastPage ?? 1;
+  }
+
+  /// Check if has next page
+  static bool hasNextPage(ProductResponse response) {
+    final currentPage = response.meta?.currentPage ?? 1;
+    final lastPage = response.meta?.lastPage ?? 1;
+    return currentPage < lastPage;
+  }
+
+  /// Check if has previous page
+  static bool hasPreviousPage(ProductResponse response) {
+    final currentPage = response.meta?.currentPage ?? 1;
+    return currentPage > 1;
+  }
 }
 
 /// Sort options helper
-   class SortOptions {
-    static const String relevance = '';
-    static const String priceLowToHigh = 'price_asc';
-    static const String priceHighToLow = 'price_desc';
-    static const String topRated = 'rating_desc';
-    static const String newest = 'date_desc';
-    static const String bestSelling = 'bestselling';
-  }
-  
-  /// Price range helper
-   class PriceRanges {
-    static const String under25 = 'pl=min&ph=25';
-    static const String range25to50 = 'pl=25&ph=50';
-    static const String range50to100 = 'pl=50&ph=100';
-    static const String above100 = 'pl=100&ph=max';
-    
-    static String custom(String min, String max) => 'pl=$min&ph=$max';
-  }
-  
-  /// Benefits filter options
-   class Benefits {
-    static const String hydrating = 'hydrating';
-    static const String longWearing = 'longWearing';
-    static const String transferResistant = 'transferResistant';
-    static const String plumping = 'plumping';
-    static const String moisturizing = 'moisturizing';
-    static const String transferProof = 'transferProof';
-  }
-  
-  /// Skin type filter options
-   class SkinTypes {
-    static const String normal = 'normalSk';
-    static const String dry = 'drySk';
-    static const String oily = 'oilySk';
-    static const String combination = 'comboSk';
-    static const String sensitive = 'sensitiveSk';
-  }
-  
-  /// Ingredient preferences filter options
-   class IngredientPreferences {
-    static const String vegan = 'vegan';
-    static const String cleanAtSephora = 'cleanAtSephora';
-    static const String parabenFree = 'parabenFree';
-    static const String crueltyFree = 'crueltyFree';
-    static const String sulfateFree = 'sulfateFree';
-    static const String alcoholFree = 'alcoholFree';
-    static const String fragranceFree = 'fragranceFree';
-    static const String siliconeFree = 'siliconeFree';
-  }
+class SortOptions {
+  static const String priceAsc = 'price';
+  static const String priceDesc = 'price';
+  static const String nameAsc = 'name';
+  static const String nameDesc = 'name';
+  static const String ratingDesc = 'rating';
+  static const String newest = 'createdAt';
+  static const String popular = 'ordersCount';
+}
+
+/// Sort order helper
+class SortOrder {
+  static const String ascending = 'asc';
+  static const String descending = 'desc';
+}
+
+/// Price range helper
+class PriceRanges {
+  static const int under500 = 500;
+  static const int under1000 = 1000;
+  static const int under1500 = 1500;
+  static const int under2000 = 2000;
+  static const int above2000 = 2000;
+
+  static Map<String, int> range(int min, int max) => {'min': min, 'max': max};
+}
+
+/// Skin type options
+class SkinTypes {
+  static const String all = 'All';
+  static const String normal = 'Normal';
+  static const String dry = 'Dry';
+  static const String oily = 'Oily';
+  static const String combination = 'Combination';
+}
+
+/// Skin concern options
+class SkinConcerns {
+  static const String acne = 'Effective Acne Skin Care Products';
+  static const String antiAging = 'Best Anti-Aging Products Online';
+  static const String dryness = 'Hydrating Dry Skin Care Products';
+  static const String dullness = 'Dullness';
+  static const String hydration = 'Hydration';
+  static const String oilControl = 'Open Pores / Oil Control Skin Care Products';
+  static const String pigmentation = 'Pigmentation Skin Care Products';
+  static const String poreSebum = 'Pore / Sebum';
+  static const String redness = 'Facial Redness Reducing Products';
+  static const String sensitive = 'Sensitive Skin Products';
+}
+
+/// Product type options
+class ProductTypes {
+  static const String acidToner = 'Acid Toner';
+  static const String chemicalExfoliator = 'Chemical Exfoliator';
+  static const String cleanser = 'Water Cleanser';
+  static const String essence = 'Essence Toner & serum';
+  static const String eyeCream = 'Eye Cream';
+  static const String facialMist = 'Facial Mists & Toners';
+  static const String maskSheet = 'Sheet Mask';
+  static const String maskWashOff = 'Wash-off Mask';
+  static const String moisturizer = 'Moisturizers & Lotions';
+  static const String serum = 'Face Serum & Ampoule';
+  static const String sunscreen = 'Sunscreen';
+}
