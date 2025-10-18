@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:product_sale_app/core/themes/app_theme.dart';
 import '../routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -79,7 +80,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color(0xFF6366F1),
+                  color: AppTheme.primaryColor,
                 ),
                 child: Icon(
                   Icons.shopping_bag_outlined,
@@ -143,7 +144,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     height: 8,
                     decoration: BoxDecoration(
                       color: _currentIndex == index
-                          ? Color(0xFF6366F1)
+                          ? AppTheme.primaryColor
                           : Color(0xFFE5E7EB),
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -178,7 +179,7 @@ class _SplashScreenState extends State<SplashScreen> {
       children: [
         Icon(
           icon,
-          color: Color(0xFF6366F1),
+          color: AppTheme.primaryColor,
           size: 24,
         ),
         const SizedBox(height: 6),

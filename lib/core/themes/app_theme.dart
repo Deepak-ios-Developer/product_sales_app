@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 class AppTheme {
   static final lightTheme = ThemeData(
     primarySwatch: Colors.blue,
@@ -27,11 +28,13 @@ class AppTheme {
     ),
     textTheme: const TextTheme(
       bodyMedium: TextStyle(color: Colors.white),
-      titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-      titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.normal, color: Colors.white),
+      titleLarge: TextStyle(
+          fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+      titleMedium: TextStyle(
+          fontSize: 16, fontWeight: FontWeight.normal, color: Colors.white),
     ),
   );
-  static const Color primaryColor = Color(0xFF007AFF);
+  static const Color primaryColor = Color(0xFF36930f);
   static const Color secondaryColor = Color(0xFF5856D6);
   static const Color white = Colors.white;
   static const Color shadeGrey = Colors.grey;

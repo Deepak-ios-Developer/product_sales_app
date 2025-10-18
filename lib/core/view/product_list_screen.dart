@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:product_sale_app/core/common_widgets/app_loader.dart';
 import 'package:product_sale_app/core/common_widgets/flitter_widget.dart';
 import 'package:product_sale_app/core/storage/storage.dart';
 import 'package:product_sale_app/core/themes/app_fonts.dart';
@@ -15,7 +16,6 @@ import '../constants/common_strings.dart';
 import '../model/product_model.dart';
 import '../service/product_service.dart';
 import '../themes/theme_provider.dart';
-import 'downloaded_pdf_screen.dart';
 
 class ProductListingScreen extends StatefulWidget {
   const ProductListingScreen({super.key});
@@ -68,7 +68,7 @@ class _ProductListingScreenState extends State<ProductListingScreen>
     super.initState();
     _fetchProducts();
     _scrollController.addListener(_scrollListener);
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   Future<void> _fetchProducts({bool loadMore = false}) async {
@@ -259,19 +259,6 @@ class _ProductListingScreenState extends State<ProductListingScreen>
     setState(() {
       filteredProducts = results;
     });
-  }
-
-  void _filterBrands(String query) {
-    if (query.isEmpty) {
-      setState(() => filteredBrands = brands.toList()..sort());
-    } else {
-      setState(() {
-        filteredBrands = brands
-            .where((brand) => brand.toLowerCase().contains(query.toLowerCase()))
-            .toList()
-          ..sort();
-      });
-    }
   }
 
   @override
@@ -737,20 +724,14 @@ class _ProductListingScreenState extends State<ProductListingScreen>
         if (index == filteredProducts.length) {
           return _buildLoadingIndicator();
         }
-        return buildProductCard(
-            product: filteredProducts[index], context: context);
+        return ProductCard(product: filteredProducts[index]);
       },
     );
   }
 
   Widget _buildLoadingIndicator() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.secondaryColor),
-        ),
-      ),
+      child: Padding(padding: const EdgeInsets.all(16.0), child: AppLoader()),
     );
   }
 
@@ -784,10 +765,6 @@ class _ProductListingScreenState extends State<ProductListingScreen>
 
   Widget _buildProfileTab() {
     return const ProfilePage();
-  }
-
-  Widget _buildDownloadTab() {
-    return DownloadedPDFsScreen();
   }
 
   Widget _buildShimmerEffect() {

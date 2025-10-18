@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:product_sale_app/core/themes/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../constants/assets.dart';
 import '../constants/common_strings.dart';
@@ -10,7 +11,6 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
-    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -26,7 +26,7 @@ class LoginScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color(0xFF6366F1),
+                  color: AppTheme.primaryColor,
                 ),
                 child: Icon(
                   Icons.shopping_bag_outlined,
@@ -59,7 +59,6 @@ class LoginScreen extends StatelessWidget {
               ),
 
               const Spacer(),
-
               // Welcome Text
               Column(
                 children: [

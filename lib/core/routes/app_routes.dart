@@ -4,7 +4,6 @@ import 'package:product_sale_app/core/model/product_model.dart';
 import 'package:product_sale_app/core/view/login_screen.dart';
 import 'package:product_sale_app/core/view/product_list_screen.dart';
 
-import '../view/downloaded_pdf_screen.dart';
 
 class AppRoutes {
   static const String login = '/login';
@@ -24,8 +23,6 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (context) => ProductDetailScreen(product: product),
         );
-      case pdfList:
-        return MaterialPageRoute(builder: (context) =>  DownloadedPDFsScreen());
       default:
         return MaterialPageRoute(builder: (context) => const LoginScreen()); // Default route
     }

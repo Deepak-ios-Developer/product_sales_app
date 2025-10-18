@@ -6,7 +6,6 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import '../common_widgets/share_pdf_button.dart';
 import '../constants/common_strings.dart';
 import '../model/product_model.dart';
-import '../service/download_detail.dart';
 import '../themes/app_theme.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 
@@ -19,7 +18,8 @@ class ProductDetailScreen extends StatefulWidget {
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTickerProviderStateMixin {
+class _ProductDetailScreenState extends State<ProductDetailScreen>
+    with SingleTickerProviderStateMixin {
   int _activeIndex = 0;
   int _quantity = 1;
   bool _isFavorite = false;
@@ -40,7 +40,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
   // Helper method to parse price from string format like "$26.00" or "$8.00 - $16.00"
   double _parsePrice(String? priceString) {
     if (priceString == null || priceString.isEmpty) return 0.0;
-    
+
     // Remove currency symbols and extract first number
     String cleaned = priceString.replaceAll(RegExp(r'[^\d.-]'), '');
     if (cleaned.contains('-')) {
@@ -54,16 +54,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
     final product = widget.product;
     final theme = Theme.of(context);
     final isDarkTheme = theme.brightness == Brightness.dark;
-    
+
     // Get price from currentSku
     final double price = _parsePrice(product.currentSku?.listPrice);
     final double salePrice = _parsePrice(product.currentSku?.salePrice);
     final double currentPrice = salePrice > 0 ? salePrice : price;
-    
-    final double discount = price > 0 && currentPrice < price 
-        ? ((price - currentPrice) / price * 100) 
+
+    final double discount = price > 0 && currentPrice < price
+        ? ((price - currentPrice) / price * 100)
         : 0.0;
-    
+
     // Get images - create list with available images
     final List<String> images = [
       if (product.heroImage?.isNotEmpty ?? false) product.heroImage!,
@@ -72,9 +72,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
       if (product.image135?.isNotEmpty ?? false) product.image135!,
       if (product.altImage?.isNotEmpty ?? false) product.altImage!,
     ].toSet().toList(); // Remove duplicates
-    
+
     final String thumbnailUrl = product.heroImage ?? '';
-    
+
     // Get rating and reviews
     final double rating = double.tryParse(product.rating ?? '0') ?? 0.0;
     final int reviewsCount = int.tryParse(product.reviews ?? '0') ?? 0;
@@ -122,7 +122,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
           ],
         ),
         child: IconButton(
-          icon: Icon(Icons.arrow_back, color: isDarkTheme ? Colors.white : Colors.black),
+          icon: Icon(Icons.arrow_back,
+              color: isDarkTheme ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -142,7 +143,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
           child: IconButton(
             icon: Icon(
               _isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: _isFavorite ? Colors.red : (isDarkTheme ? Colors.white : Colors.black),
+              color: _isFavorite
+                  ? Colors.red
+                  : (isDarkTheme ? Colors.white : Colors.black),
             ),
             onPressed: () {
               setState(() => _isFavorite = !_isFavorite);
@@ -163,16 +166,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
           ),
           child: ShareAsPDFButton(
             title: product.displayName ?? AppStrings.title,
-            description: product.currentSku?.imageAltText ?? AppStrings.description,
+            description:
+                product.currentSku?.imageAltText ?? AppStrings.description,
             imageUrl: thumbnailUrl,
-            discountedPrice: _parsePrice(product.currentSku?.salePrice ?? product.currentSku?.listPrice),
+            discountedPrice: _parsePrice(
+                product.currentSku?.salePrice ?? product.currentSku?.listPrice),
+            // Additional optional parameters for comprehensive PDF
+            brandName: product.brandName,
+            productId: product.productId,
+            skuId: product.currentSku?.skuId,
+            originalPrice: _parsePrice(product.currentSku?.listPrice),
+            rating: double.tryParse(product.rating ?? '0'),
+            reviewsCount: int.tryParse(product.reviews ?? '0'),
+            isNew: product.currentSku?.isNew,
+            isSephoraExclusive: product.currentSku?.isSephoraExclusive,
+            isLimitedEdition: product.currentSku?.isLimitedEdition,
+            moreColors: product.moreColors,
+            pickupEligible: product.pickupEligible,
+            sameDayEligible: product.sameDayEligible,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildImageCarousel(List<String> images, bool isDarkTheme, ThemeData theme) {
+  Widget _buildImageCarousel(
+      List<String> images, bool isDarkTheme, ThemeData theme) {
     return Container(
       color: isDarkTheme ? Colors.grey[900] : Colors.grey[50],
       child: Column(
@@ -192,11 +211,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                           imageUrl: imageUrl,
                           fit: BoxFit.contain,
                           placeholder: (_, __) => Shimmer.fromColors(
-                            baseColor: isDarkTheme ? Colors.grey.shade800 : Colors.grey.shade300,
-                            highlightColor: isDarkTheme ? Colors.grey.shade700 : Colors.grey.shade100,
+                            baseColor: isDarkTheme
+                                ? Colors.grey.shade800
+                                : Colors.grey.shade300,
+                            highlightColor: isDarkTheme
+                                ? Colors.grey.shade700
+                                : Colors.grey.shade100,
                             child: Container(
                               height: 350.h,
-                              color: isDarkTheme ? Colors.grey.shade900 : Colors.white,
+                              color: isDarkTheme
+                                  ? Colors.grey.shade900
+                                  : Colors.white,
                             ),
                           ),
                           errorWidget: (_, __, ___) => Icon(
@@ -223,14 +248,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
               height: 350.h,
               margin: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDarkTheme ? Colors.grey.shade800 : Colors.grey.shade200,
+                color:
+                    isDarkTheme ? Colors.grey.shade800 : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
                 child: Icon(
                   Icons.image,
                   size: 100,
-                  color: isDarkTheme ? Colors.grey.shade600 : Colors.grey.shade400,
+                  color:
+                      isDarkTheme ? Colors.grey.shade600 : Colors.grey.shade400,
                 ),
               ),
             ),
@@ -243,7 +270,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                 dotWidth: 8,
                 dotHeight: 8,
                 activeDotColor: AppTheme.secondaryColor,
-                dotColor: isDarkTheme ? Colors.grey.shade700 : Colors.grey.shade400,
+                dotColor:
+                    isDarkTheme ? Colors.grey.shade700 : Colors.grey.shade400,
               ),
             ),
             SizedBox(height: 16),
@@ -291,7 +319,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
     );
   }
 
-  Widget _buildProductInfo(Products product, double rating, int reviewsCount, bool isDarkTheme) {
+  Widget _buildProductInfo(
+      Products product, double rating, int reviewsCount, bool isDarkTheme) {
     return Container(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -308,7 +337,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
               ),
             ),
           SizedBox(height: 8),
-          
+
           // Product Title
           Text(
             product.displayName ?? product.productName ?? AppStrings.title,
@@ -319,7 +348,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
             ),
           ),
           SizedBox(height: 12),
-          
+
           // Rating and Reviews
           if (rating > 0)
             Row(
@@ -351,7 +380,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
               ],
             ),
           SizedBox(height: 12),
-          
+
           // Tags/Badges
           Wrap(
             spacing: 8,
@@ -399,7 +428,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
     );
   }
 
-  Widget _buildPriceSection(double price, double currentPrice, double discount, bool isDarkTheme) {
+  Widget _buildPriceSection(
+      double price, double currentPrice, double discount, bool isDarkTheme) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -453,7 +483,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
       margin: EdgeInsets.all(16),
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDarkTheme ? Colors.pink[900]?.withOpacity(0.3) : Colors.pink[50],
+        color:
+            isDarkTheme ? Colors.pink[900]?.withOpacity(0.3) : Colors.pink[50],
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isDarkTheme ? Colors.pink[700]! : Colors.pink[200]!,
@@ -486,7 +517,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
           // Quantity selector
           Container(
             decoration: BoxDecoration(
-              border: Border.all(color: isDarkTheme ? Colors.grey[700]! : Colors.grey[300]!),
+              border: Border.all(
+                  color: isDarkTheme ? Colors.grey[700]! : Colors.grey[300]!),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -520,12 +552,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
             ),
           ),
           SizedBox(width: 12),
-          
+
           // Add to bag button
           Expanded(
             child: ElevatedButton(
               onPressed: () {
-                generateAndSavePDF(context, widget.product);
+                // generateAndSavePDF(context, widget.product);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Color(0xFF8B4049),
@@ -535,7 +567,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                 ),
               ),
               child: Text(
-                'ADD TO BAG',
+                AppStrings.addToBag,
                 style: TextStyle(
                   fontSize: 15.sp,
                   fontWeight: FontWeight.bold,
@@ -562,6 +594,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
             ),
           ),
           child: TabBar(
+            tabAlignment: TabAlignment.start,
             controller: _tabController,
             isScrollable: true,
             labelColor: isDarkTheme ? Colors.white : Colors.black,
@@ -645,18 +678,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
           ],
           if (product.pickupEligible != null) ...[
             _buildDetailRow(
-              'Store Pickup', 
-              product.pickupEligible! ? 'Available' : 'Not Available', 
-              isDarkTheme
-            ),
+                'Store Pickup',
+                product.pickupEligible! ? 'Available' : 'Not Available',
+                isDarkTheme),
             Divider(height: 24),
           ],
           if (product.sameDayEligible != null) ...[
             _buildDetailRow(
-              'Same Day Delivery', 
-              product.sameDayEligible! ? 'Available' : 'Not Available', 
-              isDarkTheme
-            ),
+                'Same Day Delivery',
+                product.sameDayEligible! ? 'Available' : 'Not Available',
+                isDarkTheme),
           ],
         ],
       ),
@@ -712,11 +743,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildShippingInfo('Standard Delivery', '5-7 business days', isDarkTheme),
+          _buildShippingInfo(
+              AppStrings.standardDelivery, AppStrings.standardDeliveryTime, isDarkTheme),
           SizedBox(height: 12),
-          _buildShippingInfo('Express Delivery', '2-3 business days', isDarkTheme),
+          _buildShippingInfo(
+              AppStrings.expressDelivery, AppStrings.expressDeliveryTime, isDarkTheme),
           SizedBox(height: 12),
-          _buildShippingInfo('Returns', '30-day return policy', isDarkTheme),
+          _buildShippingInfo(AppStrings.returnPolicy, AppStrings.returnPolicy, isDarkTheme),
         ],
       ),
     );
