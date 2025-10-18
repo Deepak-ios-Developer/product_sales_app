@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:product_sale_app/core/view/product_detail_page.dart';
-import 'package:product_sale_app/core/model/product_model.dart';
 import 'package:product_sale_app/core/view/login_screen.dart';
 import 'package:product_sale_app/core/view/product_list_screen.dart';
 

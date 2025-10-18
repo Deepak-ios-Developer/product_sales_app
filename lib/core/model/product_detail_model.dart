@@ -48,16 +48,16 @@ class Data {
   String? id;
   int? rating;
   String? comment;
-  Null? createdById;
+  Null createdById;
   String? approvedAt;
   String? createdAt;
   String? customerId;
-  Null? deletedAt;
+  Null deletedAt;
   String? firstName;
   String? lastName;
   String? productId;
   String? updatedAt;
-  Null? title;
+  Null title;
   bool? spam;
   bool? isPurchased;
   Customer? customer;
@@ -132,23 +132,23 @@ class Customer {
   String? email;
   String? phone;
   String? provider;
-  Null? avatarUrl;
+  Null avatarUrl;
   Metadata? metadata;
   String? password;
-  Null? providerId;
-  Null? verifiedAt;
+  Null providerId;
+  Null verifiedAt;
   String? createdAt;
   String? updatedAt;
-  Null? bannedAt;
-  Null? bannedById;
-  Null? bannedReason;
-  Null? middleName;
-  Null? deletedAt;
+  Null bannedAt;
+  Null bannedById;
+  Null bannedReason;
+  Null middleName;
+  Null deletedAt;
   String? username;
   int? totalOrders;
   int? totalSpent;
   int? averageOrderValue;
-  Null? lastOrderAt;
+  Null lastOrderAt;
 
   Customer(
       {this.id,

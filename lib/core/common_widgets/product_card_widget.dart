@@ -69,7 +69,6 @@ class _ProductCardState extends State<ProductCard> {
       }
     }
 
-    final bool isSale = specialPrice > 0 && specialPrice < price;
 
     final bool isDarkTheme = Theme.of(context).brightness == Brightness.dark;
 
