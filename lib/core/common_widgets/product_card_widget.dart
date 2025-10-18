@@ -52,7 +52,6 @@ class _ProductCardState extends State<ProductCard> {
 
     final int price = product.variants?.first.originalPrice ?? 0;
     final int currentPrice = product.variants?.first.currentPrice ?? 0;
-    final int specialPrice = product.variants?.first.specialPrice ?? 0;
 
     final double discount = price > 0 && currentPrice < price
         ? ((price - currentPrice) / price * 100)
