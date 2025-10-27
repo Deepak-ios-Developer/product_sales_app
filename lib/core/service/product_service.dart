@@ -6,7 +6,6 @@ import '../model/product_model.dart';
 class ProductService {
   // Base URLs
   static const String _baseUrl = 'https://www.stryce.com/api/v1/store/product-search';
-  static const String _reviewUrl = 'https://www.stryce.com/api/v1/store/product-review';
 
   /// Fetch products with comprehensive search and filter options
   static Future<ProductResponse> fetchProducts({
@@ -87,7 +86,6 @@ class ProductService {
 
       // Build URI with query parameters
       final uri = Uri.parse(_baseUrl).replace(queryParameters: queryParams);
-
       print('🌐 Fetching from: $uri');
 
       // Make the API request
@@ -132,7 +130,7 @@ class ProductService {
         'sort': sort ?? '',
       };
 
-      final url = '$_reviewUrl/product/$productId';
+      final url = '$_baseUrl/product/$productId';
       final uri = Uri.parse(url).replace(queryParameters: queryParams);
 
       print('🌐 Fetching reviews from: $uri');
@@ -438,40 +436,6 @@ class PriceRanges {
   static Map<String, int> range(int min, int max) => {'min': min, 'max': max};
 }
 
-/// Skin type options
-class SkinTypes {
-  static const String all = 'All';
-  static const String normal = 'Normal';
-  static const String dry = 'Dry';
-  static const String oily = 'Oily';
-  static const String combination = 'Combination';
-}
 
-/// Skin concern options
-class SkinConcerns {
-  static const String acne = 'Effective Acne Skin Care Products';
-  static const String antiAging = 'Best Anti-Aging Products Online';
-  static const String dryness = 'Hydrating Dry Skin Care Products';
-  static const String dullness = 'Dullness';
-  static const String hydration = 'Hydration';
-  static const String oilControl = 'Open Pores / Oil Control Skin Care Products';
-  static const String pigmentation = 'Pigmentation Skin Care Products';
-  static const String poreSebum = 'Pore / Sebum';
-  static const String redness = 'Facial Redness Reducing Products';
-  static const String sensitive = 'Sensitive Skin Products';
-}
 
-/// Product type options
-class ProductTypes {
-  static const String acidToner = 'Acid Toner';
-  static const String chemicalExfoliator = 'Chemical Exfoliator';
-  static const String cleanser = 'Water Cleanser';
-  static const String essence = 'Essence Toner & serum';
-  static const String eyeCream = 'Eye Cream';
-  static const String facialMist = 'Facial Mists & Toners';
-  static const String maskSheet = 'Sheet Mask';
-  static const String maskWashOff = 'Wash-off Mask';
-  static const String moisturizer = 'Moisturizers & Lotions';
-  static const String serum = 'Face Serum & Ampoule';
-  static const String sunscreen = 'Sunscreen';
-}
+
